@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerry's Movies and TV Show Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 1.87em;
+            margin-bottom: 7px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+        }
+
+        button.secondary {
+            background: #2196F3;
+        }
+
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+
+        .category {
+            margin-bottom: 50px;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid rgba(255,255,255,0.3);
+        }
+
+        .category h2 {
+            font-size: 1.35em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .count {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+        }
+
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+            gap: 15px;
+        }
+
+        .movie-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.1);
+            position: relative;
+            height: 169px;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .movie-card[onclick] {
+            cursor: pointer;
+        }
+
+        .movie-card[onclick]:hover::after {
+            content: '🔗 View on IMDb';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.75em;
+            z-index: 10;
+        }
+
+        .movie-poster {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: rgba(255,255,255,0.3);
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .movie-poster img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .movie-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 7px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 70%, transparent 100%);
+            z-index: 1;
+        }
+
+        .movie-title {
+            font-weight: 700;
+            font-size: 0.71em;
+            line-height: 1.2;
+            display: inline;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .movie-year {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.6em;
+            display: inline;
+            margin-left: 4px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .movie-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .movie-actions button {
+            flex: 1;
+            padding: 4px;
+            font-size: 8px;
+            opacity: 0.95;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a3f5f;
+            padding: 30px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-family: inherit;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(255,255,255,0.15);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+        }
+
+        button.cancel {
+            background: #f44336;
+        }
+
+        button.cancel:hover {
+            background: #da190b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(255,255,255,0.6);
+            font-size: 1.1em;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
+            <p>Track movies you want to watch and get personalized recommendations</p>
+        </header>
+
+        <div class="controls">
+            <button onclick="openAddMovieModal()">🎬 Add Movie</button>
+            <button onclick="openAddTVModal()">📺 Add TV Show</button>
+        </div>
+
+        <div id="sync-status" style="text-align: center; margin-bottom: 20px; color: rgba(255,255,255,0.7); font-size: 0.9em;"></div>
+
+        <div class="category">
+            <div class="category-header">
+                <h2>🎯 Want to Watch <span class="count" id="want-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="want-to-watch-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-header">
+                <h2>📺 TV Shows <span class="count" id="recommended-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="recommended-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-header">
+                <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="watched-grid"></div>
+        </div>
+
+        <!-- Technical Controls at Bottom -->
+        <div style="margin-top: 50px; padding-top: 30px; border-top: 2px solid rgba(255,255,255,0.2);">
+            <div class="controls">
+                <button class="secondary" onclick="loadFromGist()">🔄 Reload from Gist</button>
+                <button class="secondary" onclick="exportData()">💾 Export JSON</button>
+                <button class="secondary" onclick="openGistSetup()">⚙️ Setup Gist URL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Movie Modal -->
+    <div class="modal" id="add-movie-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2>🎬 Add Movie</h2>
+            <form id="add-movie-form">
+                <div class="form-group">
+                    <label>Search for Movie</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="movie-search" placeholder="e.g., Inception">
+                        <button type="button" class="secondary" onclick="searchMovies()" style="white-space: nowrap;">
+                            🔍 Search
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Results -->
+                <div id="movie-search-results" style="margin: 20px 0; display: none;">
+                    <label>Select a movie:</label>
+                    <div id="movie-search-results-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Movie Title *</label>
+                    <input type="text" id="movie-title" required placeholder="Select from search or type manually">
+                </div>
+
+                <div id="movie-manual-fields" style="display: none;">
+                    <div class="form-group">
+                        <label>Poster URL (optional)</label>
+                        <input type="url" id="movie-poster-manual" placeholder="https://... (paste image URL from Google Images)">
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 5px;">
+                            Right-click image → Copy Image Address
+                        </small>
+                    </div>
+                </div>
+
+                <input type="hidden" id="movie-year">
+                <input type="hidden" id="movie-poster">
+                <input type="hidden" id="movie-imdb-id">
+
+                <div id="movie-poster-preview" style="margin-top: 15px; text-align: center;"></div>
+
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="movie-category" required>
+                        <option value="want">Want to Watch</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="movie-notes" rows="2" placeholder="Why you want to watch this..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit">Add Movie</button>
+                    <button type="button" class="cancel" onclick="closeAddMovieModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add TV Show Modal -->
+    <div class="modal" id="add-tv-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2>📺 Add TV Show</h2>
+            <form id="add-tv-form">
+                <div class="form-group">
+                    <label>Search for TV Show</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="tv-search" placeholder="e.g., Breaking Bad">
+                        <button type="button" class="secondary" onclick="searchTVShows()" style="white-space: nowrap;">
+                            🔍 Search
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Results -->
+                <div id="tv-search-results" style="margin: 20px 0; display: none;">
+                    <label>Select a TV show:</label>
+                    <div id="tv-search-results-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>TV Show Title *</label>
+                    <input type="text" id="tv-title" required placeholder="Select from search or type manually">
+                </div>
+
+                <div id="tv-manual-fields" style="display: none;">
+                    <div class="form-group">
+                        <label>Poster URL (optional)</label>
+                        <input type="url" id="tv-poster-manual" placeholder="https://... (paste image URL from Google Images)">
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 5px;">
+                            Right-click image → Copy Image Address
+                        </small>
+                    </div>
+                </div>
+
+                <input type="hidden" id="tv-year">
+                <input type="hidden" id="tv-poster">
+                <input type="hidden" id="tv-imdb-id">
+
+                <div id="tv-poster-preview" style="margin-top: 15px; text-align: center;"></div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="tv-notes" rows="2" placeholder="Why you want to watch this..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit">Add TV Show</button>
+                    <button type="button" class="cancel" onclick="closeAddTVModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Gist Setup Modal -->
+    <div class="modal" id="gist-modal">
+        <div class="modal-content">
+            <h2>⚙️ GitHub Gist Setup</h2>
+            <p style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">
+                Store your movie data online for free using GitHub Gist!
+            </p>
+            
+            <div style="background: rgba(76, 175, 80, 0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4CAF50;">
+                <strong style="font-size: 1.1em;">📖 Quick Setup (2 minutes):</strong>
+                <ol style="margin: 15px 0; padding-left: 20px; color: rgba(255,255,255,0.9); line-height: 1.8;">
+                    <li>Go to <a href="https://gist.github.com" target="_blank" style="color: #4CAF50; font-weight: 600;">gist.github.com</a></li>
+                    <li>Create a free GitHub account (if you don't have one)</li>
+                    <li>Click "+" button → "New gist"</li>
+                    <li>Filename: <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">movies.json</code></li>
+                    <li>Paste this starter data in the content:</li>
+                </ol>
+                <textarea readonly style="width: 100%; height: 120px; font-family: monospace; font-size: 12px; margin: 10px 0; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);">
+{
+  "wantToWatch": [],
+  "recommended": [],
+  "watched": []
+}</textarea>
+                <ol start="6" style="margin: 10px 0; padding-left: 20px; color: rgba(255,255,255,0.9); line-height: 1.8;">
+                    <li>Click "Create public gist"</li>
+                    <li>Click "Raw" button at the top right</li>
+                    <li>Copy the URL from your browser</li>
+                    <li>Paste it below!</li>
+                </ol>
+            </div>
+
+            <div class="form-group">
+                <label>GitHub Gist Raw URL</label>
+                <input type="url" id="gist-url" placeholder="https://gist.githubusercontent.com/...">
+                <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 5px;">
+                    Should start with: https://gist.githubusercontent.com/
+                </small>
+            </div>
+
+            <div class="modal-actions">
+                <button onclick="saveGistUrl()">💾 Save & Load</button>
+                <button class="cancel" onclick="closeGistSetup()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize data structure
+        let movieData = {
+            wantToWatch: [],
+            recommended: [],
+            watched: []
+        };
+
+        // Hardcoded GitHub Gist URL and token - automatically loads and saves your movie data
+        const GIST_URL = 'https://gist.githubusercontent.com/isifoo/110cee87f5fb784de43bf844de88e9cb/raw/';
+        const GITHUB_TOKEN = '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';
+        const GIST_ID = '110cee87f5fb784de43bf844de88e9cb';
+
+        // Save data to GitHub Gist
+        async function saveToGist() {
+            const statusDiv = document.getElementById('sync-status');
+            statusDiv.textContent = '💾 Saving to Gist...';
+
+            try {
+                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'movies.json': {
+                                content: JSON.stringify(movieData, null, 2)
+                            }
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    console.error('GitHub API Error:', result);
+                    throw new Error(result.message || 'Failed to save to Gist');
+                }
+
+                const now = new Date().toLocaleString();
+                localStorage.setItem('lastUpdate', now);
+                statusDiv.textContent = `✅ Saved to Gist at ${now}`;
+                
+                setTimeout(() => {
+                    statusDiv.textContent = `Last synced: ${now}`;
+                }, 3000);
+            } catch (error) {
+                console.error('Save error:', error);
+                statusDiv.textContent = `❌ Failed: ${error.message}`;
+            }
+        }
+
+        function openGistSetup() {
+            document.getElementById('gist-modal').classList.add('active');
+            document.getElementById('gist-url').value = GIST_URL;
+        }
+
+        function closeGistSetup() {
+            document.getElementById('gist-modal').classList.remove('active');
+        }
+
+        function saveGistUrl() {
+            alert('Gist URL is already configured in the code!');
+            closeGistSetup();
+        }
+
+        // Load data from GitHub Gist
+        async function loadFromGist() {
+            const statusDiv = document.getElementById('sync-status');
+            statusDiv.textContent = '🔄 Loading from Gist...';
+
+            try {
+                // Add cache-busting parameter to force fresh load
+                const cacheBuster = '?t=' + new Date().getTime();
+                const response = await fetch(GIST_URL + cacheBuster, {
+                    cache: 'no-store'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load from Gist');
+                }
+
+                const data = await response.json();
+                movieData = data;
+                localStorage.setItem('movieTrackerData', JSON.stringify(movieData));
+                renderAll();
+                
+                const now = new Date().toLocaleString();
+                localStorage.setItem('lastUpdate', now);
+                statusDiv.textContent = `✅ Loaded from Gist at ${now}`;
+                
+                setTimeout(() => {
+                    statusDiv.textContent = `Last synced: ${now}`;
+                }, 3000);
+            } catch (error) {
+                console.error('Load error:', error);
+                statusDiv.textContent = '❌ Failed to load from Gist. Using local data.';
+                
+                // Fall back to localStorage if available
+                const saved = localStorage.getItem('movieTrackerData');
+                if (saved) {
+                    movieData = JSON.parse(saved);
+                    renderAll();
+                } else {
+                    movieData = {
+                        wantToWatch: [],
+                        recommended: [],
+                        watched: []
+                    };
+                    renderAll();
+                }
+            }
+        }
+
+        // Load data on page load - ALWAYS from Gist
+        function loadData() {
+            // Automatically load from hardcoded Gist URL
+            loadFromGist();
+        }
+
+        // Save data to localStorage AND GitHub Gist
+        function saveData() {
+            localStorage.setItem('movieTrackerData', JSON.stringify(movieData));
+            const now = new Date().toLocaleString();
+            localStorage.setItem('lastUpdate', now);
+            
+            // Auto-sync to Gist
+            saveToGist();
+        }
+
+        // Render all categories
+        function renderAll() {
+            renderCategory('wantToWatch', 'want-to-watch-grid', 'want-count');
+            renderCategory('recommended', 'recommended-grid', 'recommended-count');
+            renderCategory('watched', 'watched-grid', 'watched-count');
+        }
+
+        // Render a specific category
+        function renderCategory(category, gridId, countId) {
+            const grid = document.getElementById(gridId);
+            const count = document.getElementById(countId);
+            const movies = movieData[category];
+
+            count.textContent = movies.length;
+
+            if (movies.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>📽️</div>
+                        <div>No movies yet. Add some above!</div>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = movies.map(movie => {
+                const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+                
+                return `
+                <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
+                    <div class="movie-poster">
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}">` : '🎬'}
+                    </div>
+                    <div class="movie-info">
+                        <div style="margin-bottom: 5px;">
+                            <span class="movie-title">${movie.title}</span>
+                            ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
+                        </div>
+                        <div class="movie-actions" onclick="event.stopPropagation();">
+                            ${category !== 'watched' ? 
+                                `<button onclick="markAsWatched('${category}', ${movie.id})">✓ Watched</button>` : 
+                                `<button onclick="unmarkWatched(${movie.id})">↶ Unwatch</button>`
+                            }
+                            <button class="cancel" onclick="deleteMovie('${category}', ${movie.id})">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // Add movie modal functions
+        function openAddMovieModal() {
+            document.getElementById('add-movie-modal').classList.add('active');
+            document.getElementById('add-movie-form').reset();
+            document.getElementById('movie-poster-preview').innerHTML = '';
+            document.getElementById('movie-search-results').style.display = 'none';
+            document.getElementById('movie-manual-fields').style.display = 'none';
+        }
+
+        function closeAddMovieModal() {
+            document.getElementById('add-movie-modal').classList.remove('active');
+        }
+
+        // Add TV show modal functions
+        function openAddTVModal() {
+            document.getElementById('add-tv-modal').classList.add('active');
+            document.getElementById('add-tv-form').reset();
+            document.getElementById('tv-poster-preview').innerHTML = '';
+            document.getElementById('tv-search-results').style.display = 'none';
+            document.getElementById('tv-manual-fields').style.display = 'none';
+        }
+
+        function closeAddTVModal() {
+            document.getElementById('add-tv-modal').classList.remove('active');
+        }
+
+        // Search for movies using OMDb
+        async function searchMovies() {
+            const query = document.getElementById('movie-search').value;
+            
+            if (!query) {
+                alert('Please enter a movie name to search');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('movie-search-results');
+            const resultsGrid = document.getElementById('movie-search-results-grid');
+            
+            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching...</div>';
+            resultsDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`https://www.omdbapi.com/?apikey=73defe79&s=${encodeURIComponent(query)}&type=movie`);
+                const data = await response.json();
+
+                if (data.Response === 'True' && data.Search) {
+                    resultsGrid.innerHTML = data.Search.map(movie => `
+                        <div onclick='selectMovieFromOMDb(${JSON.stringify(movie).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
+                             onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
+                             onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
+                            <div style="width: 100%; height: 160px; background: ${movie.Poster !== 'N/A' ? `url(${movie.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
+                                ${movie.Poster === 'N/A' ? '🎬' : ''}
+                            </div>
+                            <div style="padding: 8px; background: rgba(0,0,0,0.3);">
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${movie.Title}</div>
+                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${movie.Year}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    resultsGrid.innerHTML += `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
+                            <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing the right one?</div>
+                            <button type="button" onclick="enableManualMovieEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                📝 Add manually instead
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    resultsGrid.innerHTML = `
+                        <div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not found</div>
+                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Try different keywords or add it manually below.</div>
+                        </div>
+                    `;
+                    document.getElementById('movie-manual-fields').style.display = 'block';
+                    document.getElementById('movie-title').value = query;
+                    document.getElementById('movie-title').focus();
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.7);">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Select movie from OMDb results
+        function selectMovieFromOMDb(movie) {
+            document.getElementById('movie-title').value = movie.Title;
+            document.getElementById('movie-year').value = movie.Year;
+            document.getElementById('movie-imdb-id').value = movie.imdbID; // Store IMDb ID
+            
+            if (movie.Poster && movie.Poster !== 'N/A') {
+                document.getElementById('movie-poster').value = movie.Poster;
+                document.getElementById('movie-poster-preview').innerHTML = `
+                    <img src="${movie.Poster}" alt="${movie.Title}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                `;
+            }
+
+            document.getElementById('movie-search-results').style.display = 'none';
+        }
+
+        // Search for TV shows using OMDb
+        async function searchTVShows() {
+            const query = document.getElementById('tv-search').value;
+            
+            if (!query) {
+                alert('Please enter a TV show name to search');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('tv-search-results');
+            const resultsGrid = document.getElementById('tv-search-results-grid');
+            
+            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching...</div>';
+            resultsDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`https://www.omdbapi.com/?apikey=73defe79&s=${encodeURIComponent(query)}&type=series`);
+                const data = await response.json();
+
+                if (data.Response === 'True' && data.Search) {
+                    resultsGrid.innerHTML = data.Search.map(show => `
+                        <div onclick='selectTVShowFromOMDb(${JSON.stringify(show).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
+                             onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
+                             onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
+                            <div style="width: 100%; height: 160px; background: ${show.Poster !== 'N/A' ? `url(${show.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
+                                ${show.Poster === 'N/A' ? '📺' : ''}
+                            </div>
+                            <div style="padding: 8px; background: rgba(0,0,0,0.3);">
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${show.Title}</div>
+                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${show.Year}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    resultsGrid.innerHTML += `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
+                            <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing the right one?</div>
+                            <button type="button" onclick="enableManualTVEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                📝 Add manually instead
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    resultsGrid.innerHTML = `
+                        <div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not found</div>
+                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Try different keywords or add it manually below.</div>
+                        </div>
+                    `;
+                    document.getElementById('tv-manual-fields').style.display = 'block';
+                    document.getElementById('tv-title').value = query;
+                    document.getElementById('tv-title').focus();
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.7);">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Select TV show from OMDb results
+        function selectTVShowFromOMDb(show) {
+            document.getElementById('tv-title').value = show.Title;
+            document.getElementById('tv-year').value = show.Year;
+            document.getElementById('tv-imdb-id').value = show.imdbID; // Store IMDb ID
+            
+            if (show.Poster && show.Poster !== 'N/A') {
+                document.getElementById('tv-poster').value = show.Poster;
+                document.getElementById('tv-poster-preview').innerHTML = `
+                    <img src="${show.Poster}" alt="${show.Title}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                `;
+            }
+
+            document.getElementById('tv-search-results').style.display = 'none';
+        }
+
+        // Enable manual entry for movies
+        function enableManualMovieEntry() {
+            document.getElementById('movie-search-results').style.display = 'none';
+            document.getElementById('movie-manual-fields').style.display = 'block';
+            document.getElementById('movie-title').focus();
+        }
+
+        // Enable manual entry for TV shows
+        function enableManualTVEntry() {
+            document.getElementById('tv-search-results').style.display = 'none';
+            document.getElementById('tv-manual-fields').style.display = 'block';
+            document.getElementById('tv-title').focus();
+        }
+
+        // Handle form submission for movies
+        document.getElementById('add-movie-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const manualPoster = document.getElementById('movie-poster-manual')?.value;
+            const autoPoster = document.getElementById('movie-poster').value;
+            
+            const movie = {
+                id: Date.now(),
+                title: document.getElementById('movie-title').value,
+                year: document.getElementById('movie-year').value,
+                poster: manualPoster || autoPoster,
+                notes: document.getElementById('movie-notes').value,
+                imdbId: document.getElementById('movie-imdb-id').value // Store IMDb ID
+            };
+
+            const category = document.getElementById('movie-category').value;
+            
+            if (category === 'want') {
+                movieData.wantToWatch.push(movie);
+            }
+
+            saveData();
+            renderAll();
+            closeAddMovieModal();
+        });
+
+        // Handle form submission for TV shows
+        document.getElementById('add-tv-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const manualPoster = document.getElementById('tv-poster-manual')?.value;
+            const autoPoster = document.getElementById('tv-poster').value;
+            
+            const show = {
+                id: Date.now(),
+                title: document.getElementById('tv-title').value,
+                year: document.getElementById('tv-year').value,
+                poster: manualPoster || autoPoster,
+                notes: document.getElementById('tv-notes').value,
+                imdbId: document.getElementById('tv-imdb-id').value // Store IMDb ID
+            };
+
+            movieData.recommended.push(show);
+
+            saveData();
+            renderAll();
+            closeAddTVModal();
+        });
+
+        // Mark movie as watched
+        function markAsWatched(fromCategory, movieId) {
+            const movie = movieData[fromCategory].find(m => m.id === movieId);
+            if (movie) {
+                movieData[fromCategory] = movieData[fromCategory].filter(m => m.id !== movieId);
+                movieData.watched.push(movie);
+                saveData();
+                renderAll();
+            }
+        }
+
+        // Unmark as watched
+        function unmarkWatched(movieId) {
+            const movie = movieData.watched.find(m => m.id === movieId);
+            if (movie) {
+                movieData.watched = movieData.watched.filter(m => m.id !== movieId);
+                movieData.wantToWatch.push(movie);
+                saveData();
+                renderAll();
+            }
+        }
+
+        // Delete movie
+        function deleteMovie(category, movieId) {
+            if (confirm('Are you sure you want to delete this movie?')) {
+                movieData[category] = movieData[category].filter(m => m.id !== movieId);
+                saveData();
+                renderAll();
+            }
+        }
+
+        // Export data as JSON file
+        function exportData() {
+            const dataStr = JSON.stringify(movieData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `movie-tracker-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Import data from JSON file
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        movieData = JSON.parse(event.target.result);
+                        saveData();
+                        renderAll();
+                        alert('Data imported successfully!');
+                    } catch (error) {
+                        alert('Error importing data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('add-movie-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'add-movie-modal') {
+                closeAddMovieModal();
+            }
+        });
+
+        document.getElementById('add-tv-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'add-tv-modal') {
+                closeAddTVModal();
+            }
+        });
+
+        document.getElementById('gist-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'gist-modal') {
+                closeGistSetup();
+            }
+        });
+
+        // Initialize on page load
+        loadData();
+    </script>
+</body>
+</html>
