@@ -627,14 +627,12 @@
             loadFromGist();
         }
 
-        // Save data to localStorage AND GitHub Gist
+        // Save data to localStorage only (Gist auto-save disabled for GitHub Pages)
         function saveData() {
             localStorage.setItem('movieTrackerData', JSON.stringify(movieData));
             const now = new Date().toLocaleString();
             localStorage.setItem('lastUpdate', now);
-            
-            // Auto-sync to Gist
-            saveToGist();
+            document.getElementById('sync-status').textContent = `Last updated: ${now}`;
         }
 
         // Render all categories
@@ -966,6 +964,8 @@
             link.download = `movie-tracker-${new Date().toISOString().split('T')[0]}.json`;
             link.click();
             URL.revokeObjectURL(url);
+            
+            alert('💾 Data exported! Upload this file to your GitHub Gist to backup your changes.');
         }
 
         // Import data from JSON file
