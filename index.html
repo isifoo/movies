@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v2.0.0 - Firebase Auto-Save</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v2.0.1 - Fixed Firebase Loading</div>
         </header>
 
         <div class="controls">
@@ -917,12 +917,6 @@
         document.getElementById('add-tv-modal').addEventListener('click', (e) => {
             if (e.target.id === 'add-tv-modal') {
                 closeAddTVModal();
-            }
-        });
-
-        document.getElementById('gist-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'gist-modal') {
-                closeGistSetup();
             }
         });
 
