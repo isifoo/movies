@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v4.0.0 - Smart Fallback (fast + IMDb option)</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v5.0.0 - TMDB (finds upcoming movies instantly!)</div>
         </header>
 
         <div class="controls">
@@ -462,6 +462,10 @@
     </div>
 
     <script>
+        // TMDB API Configuration
+        const TMDB_API_KEY = "de6f7a5dd9872278eebca4f5c9536ac8";
+        const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+
         // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD73MYTuHee6RTYs071XzOZUZnNS4jY9xw",
@@ -627,7 +631,7 @@
             document.getElementById('add-tv-modal').classList.remove('active');
         }
 
-        // Fast OMDb search first, with IMDb scraping fallback
+        // TMDB search for movies - finds everything including upcoming!
         async function searchMovies() {
             const query = document.getElementById('movie-search').value;
             
@@ -639,49 +643,61 @@
             const resultsDiv = document.getElementById('movie-search-results');
             const resultsGrid = document.getElementById('movie-search-results-grid');
             
-            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching...</div>';
+            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching TMDB...</div>';
             resultsDiv.style.display = 'block';
 
             try {
-                // Step 1: Try fast OMDb search first
-                const response = await fetch(`https://www.omdbapi.com/?apikey=73defe79&s=${encodeURIComponent(query)}&type=movie`);
+                // Search TMDB
+                const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
                 const data = await response.json();
 
-                if (data.Response === 'True' && data.Search && data.Search.length > 0) {
-                    // Found results in OMDb! Show them.
-                    resultsGrid.innerHTML = data.Search.map(movie => `
-                        <div onclick='selectMovieFromOMDb(${JSON.stringify(movie).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
+                if (data.results && data.results.length > 0) {
+                    // Get IMDb IDs for each movie (need additional API call)
+                    const moviesWithDetails = await Promise.all(
+                        data.results.slice(0, 8).map(async movie => {
+                            try {
+                                const detailsResponse = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                                const details = await detailsResponse.json();
+                                return {
+                                    ...movie,
+                                    imdbId: details.imdb_id || null
+                                };
+                            } catch {
+                                return movie;
+                            }
+                        })
+                    );
+
+                    resultsGrid.innerHTML = moviesWithDetails.map(movie => {
+                        const year = movie.release_date ? movie.release_date.split('-')[0] : 'TBA';
+                        const posterUrl = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+                        
+                        return `
+                        <div onclick='selectMovieFromTMDB(${JSON.stringify(movie).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
                              onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
                              onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
-                            <div style="width: 100%; height: 160px; background: ${movie.Poster !== 'N/A' ? `url(${movie.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
-                                ${movie.Poster === 'N/A' ? '🎬' : ''}
+                            <div style="width: 100%; height: 160px; background: ${posterUrl ? `url(${posterUrl}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
+                                ${!posterUrl ? '🎬' : ''}
                             </div>
                             <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${movie.Title}</div>
-                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${movie.Year}</div>
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${movie.title}</div>
+                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${year}</div>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                     resultsGrid.innerHTML += `
                         <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
                             <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing it?</div>
-                            <button type="button" onclick="searchIMDbDirect('${query.replace(/'/g, "\\'")}')" style="background: #FF9800; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 8px;">
-                                🔍 Search IMDb (upcoming movies)
-                            </button>
                             <button type="button" onclick="enableManualMovieEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
                                 📝 Add manually
                             </button>
                         </div>
                     `;
                 } else {
-                    // No results in OMDb - offer IMDb scraping
                     resultsGrid.innerHTML = `
                         <div style="text-align: center; padding: 30px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
-                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not in database</div>
-                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">This might be an upcoming or unreleased movie.</div>
-                            <button type="button" onclick="searchIMDbDirect('${query.replace(/'/g, "\\'")}')" style="background: #FF9800; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; margin-right: 10px;">
-                                🔍 Search IMDb directly (slower)
-                            </button>
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not found</div>
+                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Try different keywords or add manually.</div>
                             <button type="button" onclick="enableManualMovieEntry(); document.getElementById('movie-title').value='${query.replace(/'/g, "\\'")}';" style="background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
                                 📝 Add manually
                             </button>
@@ -696,83 +712,14 @@
             }
         }
 
-        // Deep search via IMDb scraping (slower but finds upcoming movies)
-        async function searchIMDbDirect(query) {
-            const resultsGrid = document.getElementById('movie-search-results-grid');
-            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">⏳ Searching IMDb... (this takes 5-10 seconds)</div>';
-
-            try {
-                const imdbSearchUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(query)}&s=tt&ttype=ft`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imdbSearchUrl)}`;
-                
-                const response = await fetch(proxyUrl);
-                const html = await response.text();
-                
-                const imdbIdRegex = /\/title\/(tt\d+)/g;
-                const matches = [...html.matchAll(imdbIdRegex)];
-                const imdbIds = [...new Set(matches.map(m => m[1]))].slice(0, 6);
-                
-                if (imdbIds.length > 0) {
-                    resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">✨ Loading details...</div>';
-                    
-                    const moviePromises = imdbIds.map(async imdbId => {
-                        try {
-                            const r = await fetch(`https://www.omdbapi.com/?apikey=73defe79&i=${imdbId}`);
-                            return await r.json();
-                        } catch {
-                            return null;
-                        }
-                    });
-                    
-                    const results = await Promise.allSettled(moviePromises);
-                    const movies = results
-                        .filter(r => r.status === 'fulfilled' && r.value && r.value.Response === 'True' && r.value.Type === 'movie')
-                        .map(r => r.value);
-
-                    if (movies.length > 0) {
-                        resultsGrid.innerHTML = movies.map(movie => {
-                            const displayTitle = movie.Title === 'Untitled' 
-                                ? `Untitled (${movie.Year})` 
-                                : movie.Title;
-                            
-                            return `
-                            <div onclick='selectMovieFromOMDb(${JSON.stringify(movie).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
-                                 onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
-                                 onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
-                                <div style="width: 100%; height: 160px; background: ${movie.Poster !== 'N/A' ? `url(${movie.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
-                                    ${movie.Poster === 'N/A' ? '🎬' : ''}
-                                </div>
-                                <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                    <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${displayTitle}</div>
-                                    <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${movie.Year}</div>
-                                </div>
-                            </div>
-                        `}).join('');
-                        resultsGrid.innerHTML += `
-                            <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
-                                <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing the right one?</div>
-                                <button type="button" onclick="enableManualMovieEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                                    📝 Add manually instead
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        throw new Error('No valid movies found');
-                    }
-                } else {
-                    throw new Error('No results found');
-                }
-            } catch (error) {
-                console.error('IMDb search error:', error);
-                resultsGrid.innerHTML = `
-                    <div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
-                        <div style="font-size: 1.2em; margin-bottom: 10px;">😕 IMDb search failed</div>
-                        <div style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Please add manually below.</div>
-                    </div>
-                `;
-                document.getElementById('movie-manual-fields').style.display = 'block';
-                document.getElementById('movie-title').value = query;
-            }
+        // Select movie from TMDB results
+        function selectMovieFromTMDB(movie) {
+            document.getElementById('movie-title').value = movie.title;
+            document.getElementById('movie-year').value = movie.release_date ? movie.release_date.split('-')[0] : '';
+            document.getElementById('movie-poster').value = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : '';
+            document.getElementById('movie-imdb-id').value = movie.imdbId || '';
+            document.getElementById('movie-manual-fields').style.display = 'block';
+            document.getElementById('movie-search-results').style.display = 'none';
         }
 
         // Select movie from OMDb results
@@ -791,7 +738,7 @@
             document.getElementById('movie-search-results').style.display = 'none';
         }
 
-        // Fast OMDb search first for TV, with IMDb scraping fallback
+        // TMDB search for TV shows
         async function searchTVShows() {
             const query = document.getElementById('tv-search').value;
             
@@ -803,49 +750,61 @@
             const resultsDiv = document.getElementById('tv-search-results');
             const resultsGrid = document.getElementById('tv-search-results-grid');
             
-            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching...</div>';
+            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">🔄 Searching TMDB...</div>';
             resultsDiv.style.display = 'block';
 
             try {
-                // Step 1: Try fast OMDb search first
-                const response = await fetch(`https://www.omdbapi.com/?apikey=73defe79&s=${encodeURIComponent(query)}&type=series`);
+                // Search TMDB for TV
+                const response = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
                 const data = await response.json();
 
-                if (data.Response === 'True' && data.Search && data.Search.length > 0) {
-                    // Found results in OMDb!
-                    resultsGrid.innerHTML = data.Search.map(show => `
-                        <div onclick='selectTVShowFromOMDb(${JSON.stringify(show).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
+                if (data.results && data.results.length > 0) {
+                    // Get IMDb IDs for each show
+                    const showsWithDetails = await Promise.all(
+                        data.results.slice(0, 8).map(async show => {
+                            try {
+                                const detailsResponse = await fetch(`https://api.themoviedb.org/3/tv/${show.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                                const details = await detailsResponse.json();
+                                return {
+                                    ...show,
+                                    imdbId: details.imdb_id || null
+                                };
+                            } catch {
+                                return show;
+                            }
+                        })
+                    );
+
+                    resultsGrid.innerHTML = showsWithDetails.map(show => {
+                        const year = show.first_air_date ? show.first_air_date.split('-')[0] : 'TBA';
+                        const posterUrl = show.poster_path ? `${TMDB_IMAGE_BASE}${show.poster_path}` : null;
+                        
+                        return `
+                        <div onclick='selectTVShowFromTMDB(${JSON.stringify(show).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
                              onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
                              onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
-                            <div style="width: 100%; height: 160px; background: ${show.Poster !== 'N/A' ? `url(${show.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
-                                ${show.Poster === 'N/A' ? '📺' : ''}
+                            <div style="width: 100%; height: 160px; background: ${posterUrl ? `url(${posterUrl}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
+                                ${!posterUrl ? '📺' : ''}
                             </div>
                             <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${show.Title}</div>
-                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${show.Year}</div>
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${show.name}</div>
+                                <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${year}</div>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                     resultsGrid.innerHTML += `
                         <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
                             <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing it?</div>
-                            <button type="button" onclick="searchIMDbDirectTV('${query.replace(/'/g, "\\'")}')" style="background: #FF9800; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 8px;">
-                                🔍 Search IMDb (upcoming shows)
-                            </button>
                             <button type="button" onclick="enableManualTVEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
                                 📝 Add manually
                             </button>
                         </div>
                     `;
                 } else {
-                    // No results in OMDb - offer IMDb scraping
                     resultsGrid.innerHTML = `
                         <div style="text-align: center; padding: 30px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
-                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not in database</div>
-                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">This might be an upcoming or unreleased show.</div>
-                            <button type="button" onclick="searchIMDbDirectTV('${query.replace(/'/g, "\\'")}')" style="background: #FF9800; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; margin-right: 10px;">
-                                🔍 Search IMDb directly (slower)
-                            </button>
+                            <div style="font-size: 1.2em; margin-bottom: 10px;">🔍 "${query}" not found</div>
+                            <div style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Try different keywords or add manually.</div>
                             <button type="button" onclick="enableManualTVEntry(); document.getElementById('tv-title').value='${query.replace(/'/g, "\\'")}';" style="background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
                                 📝 Add manually
                             </button>
@@ -860,83 +819,14 @@
             }
         }
 
-        // Deep TV search via IMDb scraping
-        async function searchIMDbDirectTV(query) {
-            const resultsGrid = document.getElementById('tv-search-results-grid');
-            resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">⏳ Searching IMDb... (this takes 5-10 seconds)</div>';
-
-            try {
-                const imdbSearchUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(query)}&s=tt&ttype=tv`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imdbSearchUrl)}`;
-                
-                const response = await fetch(proxyUrl);
-                const html = await response.text();
-                
-                const imdbIdRegex = /\/title\/(tt\d+)/g;
-                const matches = [...html.matchAll(imdbIdRegex)];
-                const imdbIds = [...new Set(matches.map(m => m[1]))].slice(0, 6);
-                
-                if (imdbIds.length > 0) {
-                    resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">✨ Loading details...</div>';
-                    
-                    const showPromises = imdbIds.map(async imdbId => {
-                        try {
-                            const r = await fetch(`https://www.omdbapi.com/?apikey=73defe79&i=${imdbId}`);
-                            return await r.json();
-                        } catch {
-                            return null;
-                        }
-                    });
-                    
-                    const results = await Promise.allSettled(showPromises);
-                    const shows = results
-                        .filter(r => r.status === 'fulfilled' && r.value && r.value.Response === 'True' && r.value.Type === 'series')
-                        .map(r => r.value);
-
-                    if (shows.length > 0) {
-                        resultsGrid.innerHTML = shows.map(show => {
-                            const displayTitle = show.Title === 'Untitled' 
-                                ? `Untitled (${show.Year})` 
-                                : show.Title;
-                            
-                            return `
-                            <div onclick='selectTVShowFromOMDb(${JSON.stringify(show).replace(/'/g, "&apos;")})' style="cursor: pointer; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden; transition: all 0.3s;" 
-                                 onmouseover="this.style.borderColor='#4CAF50'; this.style.transform='scale(1.05)'" 
-                                 onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
-                                <div style="width: 100%; height: 160px; background: ${show.Poster !== 'N/A' ? `url(${show.Poster}) center/cover` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 30px;">
-                                    ${show.Poster === 'N/A' ? '📺' : ''}
-                                </div>
-                                <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                    <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${displayTitle}</div>
-                                    <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${show.Year}</div>
-                                </div>
-                            </div>
-                        `}).join('');
-                        resultsGrid.innerHTML += `
-                            <div style="grid-column: 1 / -1; text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
-                                <div style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Not seeing the right one?</div>
-                                <button type="button" onclick="enableManualTVEntry()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                                    📝 Add manually instead
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        throw new Error('No valid shows found');
-                    }
-                } else {
-                    throw new Error('No results found');
-                }
-            } catch (error) {
-                console.error('IMDb search error:', error);
-                resultsGrid.innerHTML = `
-                    <div style="text-align: center; padding: 20px; grid-column: 1 / -1; color: rgba(255,255,255,0.9);">
-                        <div style="font-size: 1.2em; margin-bottom: 10px;">😕 IMDb search failed</div>
-                        <div style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Please add manually below.</div>
-                    </div>
-                `;
-                document.getElementById('tv-manual-fields').style.display = 'block';
-                document.getElementById('tv-title').value = query;
-            }
+        // Select TV show from TMDB results
+        function selectTVShowFromTMDB(show) {
+            document.getElementById('tv-title').value = show.name;
+            document.getElementById('tv-year').value = show.first_air_date ? show.first_air_date.split('-')[0] : '';
+            document.getElementById('tv-poster').value = show.poster_path ? `${TMDB_IMAGE_BASE}${show.poster_path}` : '';
+            document.getElementById('tv-imdb-id').value = show.imdbId || '';
+            document.getElementById('tv-manual-fields').style.display = 'block';
+            document.getElementById('tv-search-results').style.display = 'none';
         }
 
         // Select TV show from OMDb results
