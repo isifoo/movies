@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker</title>
+    <title>Gerry's Movies and TV Show Tracker v10.1.1</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -17,112 +17,156 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
             min-height: 100vh;
-            padding: 20px;
-            color: #fff;
+            padding: 0;
+            color: #f5f5f7;
+            line-height: 1.5;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 40px 20px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 60px;
+            padding: 20px 0;
+        }
+
+        header img {
+            width: 100%;
+            max-width: 1400px;
+            border-radius: 18px;
+            margin: 0 auto 20px;
+            display: block;
         }
 
         h1 {
-            font-size: 1.87em;
-            margin-bottom: 7px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 2.5em;
+            margin-bottom: 12px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #f5f5f7 0%, #86868b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .controls {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             justify-content: center;
-            margin-bottom: 30px;
+            margin-bottom: 50px;
             flex-wrap: wrap;
         }
 
         button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f5f5f7;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 11px 22px;
+            border-radius: 980px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            letter-spacing: -0.01em;
         }
 
         button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.18);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
         }
 
         button.secondary {
-            background: #2196F3;
+            background: rgba(0, 122, 255, 0.15);
+            border-color: rgba(0, 122, 255, 0.3);
+            color: #0a84ff;
         }
 
         button.secondary:hover {
-            background: #0b7dda;
+            background: rgba(0, 122, 255, 0.25);
+            border-color: rgba(0, 122, 255, 0.4);
+        }
+
+        button.cancel {
+            background: rgba(255, 59, 48, 0.15);
+            border-color: rgba(255, 59, 48, 0.3);
+            color: #ff453a;
+        }
+
+        button.cancel:hover {
+            background: rgba(255, 59, 48, 0.25);
+            border-color: rgba(255, 59, 48, 0.4);
         }
 
         .category {
-            margin-bottom: 50px;
+            margin-bottom: 70px;
         }
 
         .category-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid rgba(255,255,255,0.3);
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .category h2 {
-            font-size: 1.35em;
+            font-size: 1.75em;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #f5f5f7;
         }
 
         .count {
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8em;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 6px 14px;
+            border-radius: 980px;
+            font-size: 0.75em;
+            font-weight: 500;
+            color: #86868b;
+            border: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .movie-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-            gap: 15px;
+            gap: 16px;
         }
 
         .movie-card {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.04);
             border-radius: 12px;
             overflow: hidden;
-            transition: all 0.3s;
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255,255,255,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             position: relative;
             height: 169px;
         }
 
         .movie-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
-            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06);
         }
 
         .movie-card[onclick] {
@@ -132,26 +176,29 @@
         .movie-card[onclick]:hover::after {
             content: '🔗 IMDb';
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.75em;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            color: #f5f5f7;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.7em;
             z-index: 10;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .movie-poster {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 50px;
-            color: rgba(255,255,255,0.3);
+            color: rgba(255, 255, 255, 0.15);
             position: absolute;
             top: 0;
             left: 0;
@@ -165,41 +212,98 @@
 
         .movie-info {
             position: absolute;
-            bottom: 0;
             left: 0;
             right: 0;
-            padding: 7px;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 70%, transparent 100%);
-            z-index: 1;
+            bottom: 0;
+            height: 50%;
+            padding: 12px 10px 10px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 5;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s 0.3s, opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .movie-card:hover .movie-info {
+            visibility: visible;
+            opacity: 1;
+            transition-delay: 0s;
+        }
+        
+        .movie-info-title {
+            text-align: center;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .movie-info-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
         }
 
         .movie-title {
-            font-weight: 700;
+            font-weight: 600;
             font-size: 0.71em;
-            line-height: 1.2;
+            line-height: 1.3;
             display: inline;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            color: #f5f5f7;
+            letter-spacing: -0.01em;
         }
 
         .movie-year {
-            color: rgba(255,255,255,0.9);
+            color: rgba(245, 245, 247, 0.6);
             font-size: 0.6em;
             display: inline;
             margin-left: 4px;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            font-weight: 400;
         }
 
         .movie-actions {
-            display: flex;
-            gap: 4px;
-            margin-top: 4px;
+            display: none;
         }
 
-        .movie-actions button {
-            flex: 1;
-            padding: 4px;
-            font-size: 8px;
-            opacity: 0.95;
+        .movie-overlay {
+            display: none;
+        }
+        
+        .movie-info-actions button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 1;
+            line-height: 1;
+            font-weight: 400;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .movie-info-actions button:hover {
+            transform: scale(1.2);
+        }
+        
+        .thumbs-down-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background-image: url('data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAEEAQQDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAgJAwYHBQQBAv/EAFYQAAEDAgICCwgPBAgEBwAAAAABAgMEBQYRBxIIFSExNFNzkbG00QkTNjhBUXKzFBYXGCIyMzdVVnaElJXSI2el5EJSYWJxgcPUJKHBwiVDVHSCkqL/xAAXAQEBAQEAAAAAAAAAAAAAAAAAAQIE/8QAHREBAAICAwEBAAAAAAAAAAAAAAECERIxMlEDIf/aAAwDAQACEQMRAD8Ajtie7WGxXyotKYb9lexkY1Zn1z2ueqsRVVURMk3V8h5ntssf1SZ+YSdh8mlDw8ufpM9W01k3acTI3H22WP6pM/MJOwe2yx/VJn5hJ2GnAm0jcfbZY/qkz8wk7D5rnia3T0ix0OHo6OZVRUlWrfJknlTJTVwTaR6W3FTxcPMvaNuKni4eZe080EHpbcVPFw8y9o24qeLh5l7TzQB6W3FTxcPMvaNuKni4eZe080AeltxU8XDzL2jbip4uHmXtPNAHpbcVPFw8y9o24qeLh5l7TzQB6W3FTxcPMvaNuKni4eZe080AeltxU8XDzL2jbip4uHmXtPNAHpbcVPFw8y9o24qeLh5l7TzQB6W3FTxcPMvaNuKni4eZe080AeltxU8XDzL2jbip4uHmXtPNAGwWjENPTPkW42mKva5ERjUmdFqr59zPM9H22WP6pM/MJOw04FicDcfbZY/qkz8wk7B7bLH9UmfmEnYacC7SNx9tlj+qTPzCTsHtssf1SZ+YSdhpwG0joWKaSnob9U01I17IGq1zGudrK1HNR2WflyzyBmxv4TVPoxeraCW5ka7pQ8PLn6TPVtNZNm0oeHlz9Jnq2mslt2kAAZAA+6wWe63+8U1nsluqrjcKl2rBTU0SySSLkqrkibu4iKq+ZEVV3gPhBKzA+wpxbc7YlVizFdvw9UPa1zKWnplrXszTdbIqPY1FT+6r0XzmyP2DMKp8DSbIi5eWxov+uBC8EzPeMfvR/gH8wPeMfvR/gH8wBDMEzPeMfvR/gH8wPeMfvR/gH8wBDMEzPeMfvR/gH8wPeMfvR/gH8wBDMEyJNgzOnyek2N3pWNU/11Pmk2Dl1T5PSJRO9K1uT/UUCIAJbybB/ESfJ48tTvSopE/7lPmk2EWMU+TxpYXelDKn/RQIoglNJsJcfJ8nizDLvSWdP9NTyb5sM9K9BQTVVDXYZuskbUVlLT1kjJZVz3m98jaxPP8ACcm8BG8H3X20XSw3eotF6t1VbrhTO1ZqapiWOSNckVM2rupmioqedFRT4QAP6ijfLI2KJjnyPVGta1M1cq7yInlU73grYk6XcSWhtyqKa04ebIjXRQXepeyZ7XNRUVWRserN/JWv1XIu+gHAgSZ95VpT+n8GfjKn/bj3lWlP6fwZ+Mqf9uBGYEmfeVaU/p/Bn4yp/wBuPeVaU/p/Bn4yp/24EZgSIxFsO9Ltqtb6yjfh29StVE9i0Nc9JVTyqnfo427nm1s/Mikf7jRVltr57fcaSoo6ynkWOennjWOSJ6LkrXNXJUVF30UD5wAB0jG/hNU+jF6toGN/Cap9GL1bQat2ka7pQ8PLn6TPVtNZNk0mvY/HNycxzXNVzMlRc0+Taa2LcyAAMgWK7CLRRRYJ0bUuLq6nikxDiOmZUrMrUV1PSPydFE1fJrJqvdllmqoi56iKV1Fy0bGRRtjjY1jGIjWtamSIibyIgH9AAAAAAAAAAAAAAAAAACMXdBdH1vvGjRmkCFkUN1sEkcU0uWSz0ssiR97XJM1Vsj2ubmuSIsnlUgIWcbM9EXYz4vzTP9nS9bhKxwJe9zv0a266VV00lXaCOpdbaj2BamOcipHNqI+WVW5fGRr40auf9J+5mjVSbZGbucXzIXn7ST9WpiTIAAAAAAIod0I0Z2+uwbFpNt1IyK6W2aKnucjVRqT0z11GOcn9J7JFY1FTd1XrnmjW5SvOM7NrxYsXfcuuwAVmgADpGN/Cap9GL1bQfmM3skxHUvY5rmq2PJUXNF/ZtBq3Mjn1bw2flHdJhM1bw2flHdJhMgAABaPsX9JFLpK0SWq4urO/XmghZRXdj3ZyJUMbl3x24m5IiJIipufCVuaq1cq29G+CcR6QcWU2GcL0Dquunzc5VXVjgjTLWkkdvNYmabvlVUREVVRFsA2Nmx3o9ElQl8qMT3K4Xuop+9VcMD+9UK55Ll3vLWkVq62TnKm/nqtUDuoAAAAAAAAAAAAAAAAAA4/szvFnxhydN1qErHLONmd4s+MOTputQlY4E/8AucXzIXn7ST9WpiTJGbucXzIXn7ST9WpiTIAAAAAAOM7NrxYsXfcuuwHZjjOza8WLF33LrsAFZoAA2mi4FBybegCi4FBybegAa5W8Nn5R3SYTNW8Nn5R3SYQAAAsY2DGjumwjofpcSVNIrL1iVEq5nvT4TabNe8Mbuqmqrf2me4q98yX4qZSANI0AzwVOgzAklPKyViYeoY1cx2aI5sDGuT/FHIqL5lRTdwAAAAAAAAAAAAAAAAAAA4/szvFnxhydN1qErHLONmd4s+MOTputQlY4E/8AucXzIXn7ST9WpiTJGbucXzIXn7ST9WpiTIAAAAAAOM7NrxYsXfcuuwHZjjOza8WLF33LrsAFZoAA2mi4FBybegCi4FBybegAa5W8Nn5R3SYTNW8Nn5R3SYQABuehjR1edKOPaTClmc2FZGrNVVT2q5lLA1U15HIm/voiJuZuc1M0zzQJPbAXTHb4rU3RRiGqbTTsmfLY5pFa1kiSO1n028nw9dXPaqqutrubuarUWY5zXRFoP0eaNKKn2lskFXdY/hOu1bG2Wrc5c0VWuVP2aZLlkxGplv5rmq9KAAAAAAAAAAAAAAAAAAADj+zO8WfGHJ03WoSscs42Z3iz4w5Om61CVjgT/wC5xfMheftJP1amJMkZu5xfMheftJP1amJMgAAAAAA4zs2vFixd9y67AdmOM7NrxYsXfcuuwAVmgADaaLgUHJt6AKLgUHJt6ABrlbw2flHdJhM1bw2flHdJhAFgXc8sJRWfQ/WYplgalXiCverZUeqq6ngVY2NVN5FSTv67m/mme8mVfpYtsA8RQXfQBTWhiMZPYq+opJG6yK5zZHrO16pvoi9+c1PPqL5gJBAAAAAAAAAAAAAAAAAAAAAOP7M7xZ8YcnTdahKxyzjZneLPjDk6brUJWOBP/ucXzIXn7ST9WpiTJGbucXzIXn7ST9WpiTIAAAAAAOM7NrxYsXfcuuwHZjjOza8WLF33LrsAFZoAA2mi4FBybegCi4FBybegAa5W8Nn5R3SYTNW8Nn5R3SYQB3DYbY0xlhDSY5uGsM3XEttuDGQ3ehoInPe2PXyZOi/Fa5iuXJXqjVRzmqrdbWbpegfRtcdKmkeiwtQyd4g1VqLhU/8Ap6Zioj3onlcqua1qf1nNzyTNUs80f4Mw3gPDMGHcLWyG30ES6ytYmb5XqiIskjt971REzVfIiJvIiIGwAAAAAAAAAAAAAAAAAAAAAOP7M7xZ8YcnTdahKxyzjZneLPjDk6brUJWOBP8A7nF8yF5+0k/VqYkyRm7nF8yF5+0k/VqYkyAAAAAADjOza8WLF33LrsB2Y4zs2vFixd9y67ABWaAANpouBQcm3oAouBQcm3oAGuVvDZ+Ud0mEzVvDZ+Ud0mECcHc17FFFhPFuJlVrpaquhoGorUzY2KPvi5Lv5O78mfoJ5iXBCXub2MaWlvOJMD1lXqS17I6+3xOVqNc+NHNmRM1zV6tWNckRfgxuXcyJtAAAAAAAAAAAAAAAAAAAAAAHH9md4s+MOTputQlY5Zbs37hS0OxrxJFUVEUUtbJS09Mx7sllf7JjerW+dUYx7svM1V8hWkBP/ucXzIXn7ST9WpiTJGPucMsS6F73AkrFlZiKV7mI5NZrVpqdEVU8iKrXZL/YvmJOAAAAAAA4zs2vFixd9y67AdmOJbOOrpabY0YkhqJ44pKuWjhp2uXJZHpVRPVrfOuqx7v8GqBWoAANpouBQcm3oAouBQcm3oAGuVvDZ+Ud0mEzVvDZ+Ud0mED0sL368YYxDQ4gsFfLQXOhlSamqI8s2OT+xdxUVM0VqoqKiqioqKqFgehHZUYExnbaeixdW0uFMQNjRJ0qn97opnIi6zopnLkxNzPVkVFRXI1FflmtdQAuQt1dRXKjjrbdWU9ZSyprRzQSJIx6edHIqop9BTOALmAUzgC5gFM4AuYBTOdH2Nmj5dJWl+zYdnhdJbGP9mXRURckpY1RXtVUVFTXXVjRyLmiyIvkAtRARERMk3EAAAAAAAPx7msarnORrUTNVVckRD9VUaiqqoiJuqqkGNmDskUxElXo90e1/wD4LuxXW6wu4d5HQwuT/wAnyOenym8nwM1kDStmVpnbpMxlHY7DO9cL2SR7YHNkVW1s+86oyTc1UT4LN9clcuaa6tTgYAHWdjHpkrND2NJa2SlfXWG5NZDdaWPLvitaqqyWNVVE12azskVcnI5yLkqo5ti+BNIeB8dUrajCeKLZddZmusMUyJPG3NUzfE7KRm8vxmoVHgC5gFM4AuYBTOALesZYywng2hWtxTiK2WeHUc9vsqoax8iNRVVGMz1nuyRfgtRVXyIpX/su9OrdK98p7Jh9ksOFLVK58DpM2vrpstXv7mL8VqJmjEVNZEc5VyV2q3goAAADaaLgUHJt6AKLgUHJt6ABrlbw2flHdJhM1bw2flHdJhAAAAAAAAAAAAT07ndgVlp0eXHHdXC32Xfp1gpHrquVtLC5WqqL8ZutLro5FXd70xciC9jtlbe71Q2a2wrPXV9THS00SKia8kjka1ua7iZqqIW64Kw/R4UwhaMM29XOpbXRRUkTnIiOejGI3WdkiJrLlmv9qqB64AAAAAYLhWUlvoZ6+vqoKSkpo3SzzzyIyOJjUzc5zl3GoiIqqq7iHwYvxJYsI4eqsQYkucFttlIzWmnmXcTzIiJuucu8jURVVdxEVSujZJbIHEOle4zWyhWe04Rik/4e362T6jVXNslQqLk52aIqMRVa3cy1lTWUNr2UmyZr8dPrMJYHmnoMKrnFPVZKye5N3lzRd1kK/wBXcc5PjZZqxI0gAAAAAAAAAAAAAAAAAbTRcCg5NvQBRcCg5NvQANcreGz8o7pMJmreGz8o7pMIAAAAAAAAAAAd12DGFo8S7IK3VNQ2CSnsdLNdHxys1tdzco49XzObJKx6L/cLIyIvc1rA6HDGL8Uv705lXWwW+L4Pw2LCxZH7vmd3+Pc/ukugAAAGs6TsdYb0c4QqsUYorfY9FB8GONiI6WplVF1Yom5prPdku5uIiIrlVGoqp9OP8WWbA2D7jirEE7obfb4u+SaiZveqqiNY1M0zc5yo1EzRM1TNUTdKxNOmlbEelrGDr3en+x6KDWjtttjeroqOJV3k3tZ7skVz1RFcqJuI1GtaGbTrpgxTpaxK64XiVaS2QvXa+1RSKsNK3yL5NeRU+M9URV8iNbk1OcgAAAAAAAAAAAAAAAAAAABtNFwKDk29AFFwKDk29AA1yt4bPyjukwmat4bPyjukwgAAAAAAAAAABZHsEbVS27Y4Wasp25SXSrq6uoXzvSZ0Kf8A5hYd1OM7CXxYsI/feuznZgAAAgX3Q3H9TdtIdHo/pZ3Nt1ihZUVUWTm69XK3WRV3cnI2JzNVckVFkkTNc9yLZ2DZnVEdVsl8YSx/FbJTRr/iylhav/NqnHwAAAAAAAAAAAAAAAAAAAAADaaLgUHJt6AKLgUHJt6AB4V7paiiu1TTVUTopmSLrMXfTPdT/kqHxmzaUPDy5+kz1bTWSzGJwAAIAAAAAAAALHdgVeobpsdbdQxMc19nr6qilVf6TnSeyM0/+M7U/wAjvZA/ueGkCGzY3umA7jUKyC+xpPQaz3aqVUSLrMRMskV8aqusqp8i1N1VQngAAAFVGyRq/ZmnzHEyLnq3qpi/+j1Z/wBpz43PToqO03Y7VFRUXElwVFT/ANzIaYAAAAAAAAAAAAAAAAAAAAAAbf7FqKJkdLVROimjjbrMXfT4KL/1B7ON/Cap9GL1bQWYxOBrulDw8ufpM9W01k2bSh4eXP0meraayW3aQABkAAAAAAAAZ6Crq7fXU9fQVM1LV00rZoJ4XqySKRqorXNcm6jkVEVFTdRUJ+bHTZTYaxZaaeyaQrlSWHEkSJH7LnVIqSuRGqvfNfcbE/cXNrsmqqpqKutqtr8AFzCKioioqKi7yofDiG7UVhsFxvtzkWKht1LLV1L0arlbHGxXuVETdXcRdxCpjDOPMb4YpkpcOYwv9opkk753ijuEsUSu86sa5Gr/AJoezjDTFpNxfh1cPYjxjca+1uc10lO7VakitXNuurURXoioi5OVUzRF30RQNKuNZUXC4VNfWSrLU1MrpppF33Pcqq5f81VTAAAAAAAAAAAAAAAAAAAAAAAAdIxv4TVPoxeraBjfwmqfRi9W0GrdpGu6UPDy5+kz1bTWTZtKHh5c/SZ6tprIt2kAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0jG/hNU+jF6toGN/Cap9GL1bQat2kbg7CeH8QMhvNxt+tV1cMckqsmka1V1E3k1tw/n3O8JfRr/xEn6gDp1jxD3O8JfRr/xEn6h7neEvo1/4iT9QA1r4Hud4S+jX/iJP1Hi42wRh232GSpoqSSGZHtRHJM524q7u4qqgBm1YxP4NA2npuMm507BtPTcZNzp2AHMptPTcZNzp2Daem4ybnTsAAbT03GTc6dg2npuMm507AAG09Nxk3OnYNp6bjJudOwABtPTcZNzp2Daem4ybnTsAAbT03GTc6dg2npuMm507AAG09Nxk3OnYNp6bjJudOwABtPTcZNzp2Daem4ybnTsAAbT03GTc6dg2npuMm507AAG09Nxk3OnYNp6bjJudOwADaNH2E7Nc6qrZXwyztYxqtRZFbkua/wBXI3H3O8JfRr/xEn6gDo+dYmqHud4S+jX/AIiT9Q9zvCX0a/8AESfqAN618D3O8JfRr/xEn6h7neEvo1/4iT9QA1r4NLxZO6oxJXvcxjNWZ0aNbnkiM+Cm+q+REABy25lX/9k=');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            vertical-align: middle;
         }
 
         .modal {
@@ -209,7 +313,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
@@ -220,19 +326,23 @@
         }
 
         .modal-content {
-            background: #2a3f5f;
-            padding: 30px;
-            border-radius: 16px;
+            background: #1d1d1f;
+            padding: 32px;
+            border-radius: 18px;
             max-width: 500px;
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .modal-content h2 {
-            margin-bottom: 20px;
-            font-size: 1.8em;
+            margin-bottom: 24px;
+            font-size: 1.75em;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #f5f5f7;
         }
 
         .form-group {
@@ -242,61 +352,111 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            color: #f5f5f7;
+            font-size: 0.95em;
+            letter-spacing: -0.01em;
         }
 
         input, select, textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            font-size: 16px;
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-            font-family: inherit;
-        }
-
-        input::placeholder, textarea::placeholder {
-            color: rgba(255,255,255,0.5);
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #f5f5f7;
+            transition: all 0.3s;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
         }
 
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #4CAF50;
-            background: rgba(255,255,255,0.15);
+            border-color: rgba(0, 122, 255, 0.6);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
         }
 
         .modal-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 25px;
+            gap: 12px;
+            margin-top: 28px;
         }
 
         .modal-actions button {
             flex: 1;
-        }
-
-        button.cancel {
-            background: #f44336;
-        }
-
-        button.cancel:hover {
-            background: #da190b;
+            padding: 13px 24px;
+            font-size: 16px;
         }
 
         .empty-state {
+            grid-column: 1 / -1;
             text-align: center;
             padding: 60px 20px;
-            color: rgba(255,255,255,0.6);
+            color: rgba(245, 245, 247, 0.5);
             font-size: 1.1em;
         }
 
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
+        .empty-state div:first-child {
+            font-size: 3em;
+            margin-bottom: 16px;
             opacity: 0.3;
+        }
+
+        #sync-status {
+            text-align: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            margin-bottom: 24px;
+            font-size: 0.9em;
+            color: #86868b;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-weight: 500;
+        }
+
+        small {
+            color: rgba(245, 245, 247, 0.5);
+            font-size: 0.85em;
+        }
+
+        /* Custom scrollbar for Apple look */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .category h2 {
+                font-size: 1.4em;
+            }
+
+            .movie-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 12px;
+            }
         }
     </style>
 </head>
@@ -324,6 +484,13 @@
 
         <div class="category">
             <div class="category-header">
+                <h2>🔜 Coming Soon <span class="count" id="coming-soon-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="coming-soon-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-header">
                 <h2>📺 TV Shows <span class="count" id="recommended-count">0</span></h2>
             </div>
             <div class="movie-grid" id="recommended-grid"></div>
@@ -334,6 +501,13 @@
                 <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
             </div>
             <div class="movie-grid" id="watched-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-header">
+                <h2>👎 Not My Cup of Tea <span class="count" id="not-my-cup-of-tea-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="not-my-cup-of-tea-grid"></div>
         </div>
 
         <!-- Technical Controls at Bottom -->
@@ -383,6 +557,7 @@
                 <input type="hidden" id="movie-year">
                 <input type="hidden" id="movie-poster">
                 <input type="hidden" id="movie-imdb-id">
+                <input type="hidden" id="movie-release-date">
 
                 <div id="movie-poster-preview" style="margin-top: 15px; text-align: center;"></div>
 
@@ -462,6 +637,9 @@
     </div>
 
     <script>
+        // App Version
+        const APP_VERSION = "v10.1.1";
+        
         // TMDB API Configuration
         const TMDB_API_KEY = "de6f7a5dd9872278eebca4f5c9536ac8";
         const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
@@ -484,8 +662,64 @@
         let movieData = {
             wantToWatch: [],
             recommended: [],
-            watched: []
+            watched: [],
+            notMyCupOfTea: []
         };
+
+
+        // Automatically organize movies based on release dates
+        function checkAndMoveReleasedMovies() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            let changesMade = false;
+            
+            // Move released movies FROM Coming Soon TO Want to Watch
+            const releasedMovies = [];
+            movieData.comingSoon.forEach(movie => {
+                if (movie.releaseDate) {
+                    const releaseDate = new Date(movie.releaseDate);
+                    if (releaseDate <= today) {
+                        releasedMovies.push(movie);
+                    }
+                }
+            });
+            
+            if (releasedMovies.length > 0) {
+                releasedMovies.forEach(movie => {
+                    movieData.comingSoon = movieData.comingSoon.filter(m => m.id !== movie.id);
+                    movieData.wantToWatch.push(movie);
+                });
+                changesMade = true;
+                console.log(`Moved ${releasedMovies.length} released movie(s) from Coming Soon to Want to Watch`);
+            }
+            
+            // Move unreleased movies FROM Want to Watch TO Coming Soon
+            const unreleasedMovies = [];
+            movieData.wantToWatch.forEach(movie => {
+                if (movie.releaseDate) {
+                    const releaseDate = new Date(movie.releaseDate);
+                    if (releaseDate > today) {
+                        unreleasedMovies.push(movie);
+                    }
+                }
+            });
+            
+            if (unreleasedMovies.length > 0) {
+                unreleasedMovies.forEach(movie => {
+                    movieData.wantToWatch = movieData.wantToWatch.filter(m => m.id !== movie.id);
+                    movieData.comingSoon.push(movie);
+                });
+                changesMade = true;
+                console.log(`Moved ${unreleasedMovies.length} unreleased movie(s) from Want to Watch to Coming Soon`);
+            }
+            
+            if (changesMade) {
+                saveData();
+            } else {
+                console.log('No movies needed to be moved between categories');
+            }
+        }
 
         // Load data from Firebase on page load
         async function loadData() {
@@ -497,6 +731,13 @@
                 
                 if (doc.exists) {
                     movieData = doc.data().data;
+                    // Ensure new categories exist (backward compatibility)
+                    if (!movieData.notMyCupOfTea) {
+                        movieData.notMyCupOfTea = [];
+                    }
+                    if (!movieData.comingSoon) {
+                        movieData.comingSoon = [];
+                    }
                     localStorage.setItem('movieTrackerData', JSON.stringify(movieData));
                     const now = new Date().toLocaleString();
                     statusDiv.textContent = `✅ Loaded from cloud at ${now}`;
@@ -505,13 +746,22 @@
                     const saved = localStorage.getItem('movieTrackerData');
                     if (saved) {
                         movieData = JSON.parse(saved);
+                        // Ensure new categories exist (backward compatibility)
+                        if (!movieData.notMyCupOfTea) {
+                            movieData.notMyCupOfTea = [];
+                        }
+                        if (!movieData.comingSoon) {
+                            movieData.comingSoon = [];
+                        }
                         statusDiv.textContent = '📱 Loaded from local storage';
                     } else {
                         // New user
                         movieData = {
                             wantToWatch: [],
+                            comingSoon: [],
                             recommended: [],
-                            watched: []
+                            watched: [],
+                            notMyCupOfTea: []
                         };
                         statusDiv.textContent = '👋 Welcome! Start by adding movies.';
                     }
@@ -522,15 +772,27 @@
                 const saved = localStorage.getItem('movieTrackerData');
                 if (saved) {
                     movieData = JSON.parse(saved);
+                    // Ensure new categories exist (backward compatibility)
+                    if (!movieData.notMyCupOfTea) {
+                        movieData.notMyCupOfTea = [];
+                    }
+                    if (!movieData.comingSoon) {
+                        movieData.comingSoon = [];
+                    }
                 } else {
                     movieData = {
                         wantToWatch: [],
+                        comingSoon: [],
                         recommended: [],
-                        watched: []
+                        watched: [],
+                        notMyCupOfTea: []
                     };
                 }
                 statusDiv.textContent = '⚠️ Using local data. Cloud sync unavailable.';
             }
+            
+            // Check if any movies in Coming Soon have been released
+            checkAndMoveReleasedMovies();
             
             renderAll();
         }
@@ -558,15 +820,24 @@
         // Render all categories
         function renderAll() {
             renderCategory('wantToWatch', 'want-to-watch-grid', 'want-count');
+            renderCategory('comingSoon', 'coming-soon-grid', 'coming-soon-count');
             renderCategory('recommended', 'recommended-grid', 'recommended-count');
             renderCategory('watched', 'watched-grid', 'watched-count');
+            renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
         }
 
         // Render a specific category
         function renderCategory(category, gridId, countId) {
+            console.log(`Rendering category: ${category}, count: ${movieData[category] ? movieData[category].length : 'undefined'}`);
+            
             const grid = document.getElementById(gridId);
             const count = document.getElementById(countId);
             const movies = movieData[category];
+
+            if (!movies) {
+                console.error(`Category ${category} is undefined!`);
+                return;
+            }
 
             count.textContent = movies.length;
 
@@ -588,17 +859,20 @@
                     <div class="movie-poster">
                         ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}">` : '🎬'}
                     </div>
-                    <div class="movie-info">
-                        <div style="margin-bottom: 5px;">
+                    <div class="movie-info" onclick="event.stopPropagation();">
+                        <div class="movie-info-title">
                             <span class="movie-title">${movie.title}</span>
                             ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
                         </div>
-                        <div class="movie-actions" onclick="event.stopPropagation();">
-                            ${category !== 'watched' ? 
-                                `<button onclick="markAsWatched('${category}', ${movie.id})">✓ Watched</button>` : 
-                                `<button onclick="unmarkWatched(${movie.id})">↶ Unwatch</button>`
+                        <div class="movie-info-actions">
+                            ${category === 'wantToWatch' || category === 'recommended' ? 
+                                `<button onclick="markAsWatched(\'${category}\', ${movie.id})" title="Mark as Watched">👁</button>
+                                 <button onclick="markAsNotMyCupOfTea(\'${category}\', ${movie.id})" title="Not My Cup of Tea"><span class="thumbs-down-icon"></span></button>` : 
+                              category === 'watched' ?
+                                `<button onclick="unmarkWatched(${movie.id})" title="Move back to Want to Watch">↺</button>` :
+                                `<button onclick="moveBackToWantToWatch(${movie.id})" title="Move to Want to Watch">↺</button>`
                             }
-                            <button class="cancel" onclick="deleteMovie('${category}', ${movie.id})">🗑️</button>
+                            <button onclick="deleteMovie(\'${category}\', ${movie.id})" title="Delete">✕</button>
                         </div>
                     </div>
                 </div>
@@ -720,10 +994,19 @@
 
         // Select movie from TMDB results
         function selectMovieFromTMDB(movie) {
+            console.log('=== SELECT MOVIE FROM TMDB ===');
+            console.log('Movie object:', movie);
+            console.log('Release date from TMDB:', movie.release_date);
+            
             document.getElementById('movie-title').value = movie.title;
             document.getElementById('movie-year').value = movie.release_date ? movie.release_date.split('-')[0] : '';
             document.getElementById('movie-poster').value = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : '';
             document.getElementById('movie-imdb-id').value = movie.imdbId || '';
+            // Store full release date for smart sorting
+            document.getElementById('movie-release-date').value = movie.release_date || '';
+            
+            console.log('Set release date field to:', document.getElementById('movie-release-date').value);
+            
             document.getElementById('movie-manual-fields').style.display = 'block';
             document.getElementById('movie-search-results').style.display = 'none';
         }
@@ -1036,21 +1319,58 @@
             const manualPoster = document.getElementById('movie-poster-manual')?.value;
             const autoPoster = document.getElementById('movie-poster').value;
             
+            const releaseDate = document.getElementById('movie-release-date').value;
+            console.log('=== FORM SUBMISSION DEBUG ===');
+            console.log('Release date field value:', releaseDate);
+            console.log('Release date field element:', document.getElementById('movie-release-date'));
+            
             const movie = {
                 id: Date.now(),
                 title: document.getElementById('movie-title').value,
                 year: document.getElementById('movie-year').value,
                 poster: manualPoster || autoPoster,
                 notes: document.getElementById('movie-notes').value,
-                imdbId: document.getElementById('movie-imdb-id').value // Store IMDb ID
+                imdbId: document.getElementById('movie-imdb-id').value,
+                releaseDate: releaseDate // Store release date
             };
+
+            console.log('Adding movie:', movie.title);
+            console.log('Release date:', releaseDate);
 
             const category = document.getElementById('movie-category').value;
             
             if (category === 'want') {
-                movieData.wantToWatch.push(movie);
+                // Smart sorting based on release date
+                if (releaseDate) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0); // Reset to midnight for accurate comparison
+                    const movieReleaseDate = new Date(releaseDate);
+                    
+                    console.log('Today:', today);
+                    console.log('Movie release date:', movieReleaseDate);
+                    console.log('Is future?', movieReleaseDate > today);
+                    
+                    if (movieReleaseDate > today) {
+                        // Future release - goes to Coming Soon
+                        console.log('→ Adding to Coming Soon');
+                        movieData.comingSoon.push(movie);
+                    } else {
+                        // Past or today - goes to Want to Watch
+                        console.log('→ Adding to Want to Watch');
+                        movieData.wantToWatch.push(movie);
+                    }
+                } else {
+                    // No release date - default to Want to Watch
+                    console.log('→ No release date, adding to Want to Watch');
+                    movieData.wantToWatch.push(movie);
+                }
             }
 
+            console.log('=== AFTER ADDING ===');
+            console.log('Want to Watch count:', movieData.wantToWatch.length);
+            console.log('Coming Soon count:', movieData.comingSoon.length);
+            console.log('Coming Soon movies:', movieData.comingSoon);
+            
             saveData();
             renderAll();
             closeAddMovieModal();
@@ -1079,10 +1399,41 @@
             closeAddTVModal();
         });
 
+
+        // Mark movie as "Not My Cup of Tea"
+        function markAsNotMyCupOfTea(fromCategory, movieId) {
+            const movie = movieData[fromCategory].find(m => m.id === movieId);
+            if (movie) {
+                // Store the original category so we can revert properly
+                movie.originalCategory = fromCategory;
+                movieData[fromCategory] = movieData[fromCategory].filter(m => m.id !== movieId);
+                movieData.notMyCupOfTea.push(movie);
+                saveData();
+                renderAll();
+            }
+        }
+
+        // Move movie back to original category from "Not My Cup of Tea"
+        function moveBackToWantToWatch(movieId) {
+            const movie = movieData.notMyCupOfTea.find(m => m.id === movieId);
+            if (movie) {
+                movieData.notMyCupOfTea = movieData.notMyCupOfTea.filter(m => m.id !== movieId);
+                // Return to original category, default to wantToWatch if not set
+                const targetCategory = movie.originalCategory || 'wantToWatch';
+                movieData[targetCategory].push(movie);
+                // Clean up the originalCategory property
+                delete movie.originalCategory;
+                saveData();
+                renderAll();
+            }
+        }
+
         // Mark movie as watched
         function markAsWatched(fromCategory, movieId) {
             const movie = movieData[fromCategory].find(m => m.id === movieId);
             if (movie) {
+                // Store the original category so we can revert properly
+                movie.originalCategory = fromCategory;
                 movieData[fromCategory] = movieData[fromCategory].filter(m => m.id !== movieId);
                 movieData.watched.push(movie);
                 saveData();
@@ -1095,7 +1446,11 @@
             const movie = movieData.watched.find(m => m.id === movieId);
             if (movie) {
                 movieData.watched = movieData.watched.filter(m => m.id !== movieId);
-                movieData.wantToWatch.push(movie);
+                // Return to original category, default to wantToWatch if not set
+                const targetCategory = movie.originalCategory || 'wantToWatch';
+                movieData[targetCategory].push(movie);
+                // Clean up the originalCategory property
+                delete movie.originalCategory;
                 saveData();
                 renderAll();
             }
@@ -1117,7 +1472,7 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `movie-tracker-${new Date().toISOString().split('T')[0]}.json`;
+            link.download = `movie-tracker-${APP_VERSION}-${new Date().toISOString().split('T')[0]}.json`;
             link.click();
             URL.revokeObjectURL(url);
             
@@ -1178,11 +1533,455 @@
                     </div>
                     <div style="font-size: 3em; animation: spin 1s linear infinite;">✨</div>
                     <style>
-                        @keyframes spin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                        }
-                    </style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            padding: 0;
+            color: #f5f5f7;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding: 20px 0;
+        }
+
+        header img {
+            width: 100%;
+            max-width: 1400px;
+            border-radius: 18px;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 12px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #f5f5f7 0%, #86868b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 50px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f5f5f7;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 11px 22px;
+            border-radius: 980px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            letter-spacing: -0.01em;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.18);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: rgba(0, 122, 255, 0.15);
+            border-color: rgba(0, 122, 255, 0.3);
+            color: #0a84ff;
+        }
+
+        button.secondary:hover {
+            background: rgba(0, 122, 255, 0.25);
+            border-color: rgba(0, 122, 255, 0.4);
+        }
+
+        button.cancel {
+            background: rgba(255, 59, 48, 0.15);
+            border-color: rgba(255, 59, 48, 0.3);
+            color: #ff453a;
+        }
+
+        button.cancel:hover {
+            background: rgba(255, 59, 48, 0.25);
+            border-color: rgba(255, 59, 48, 0.4);
+        }
+
+        .category {
+            margin-bottom: 70px;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .category h2 {
+            font-size: 1.75em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #f5f5f7;
+        }
+
+        .count {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 6px 14px;
+            border-radius: 980px;
+            font-size: 0.75em;
+            font-weight: 500;
+            color: #86868b;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+            gap: 16px;
+        }
+
+        .movie-card {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            position: relative;
+            height: 169px;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .movie-card[onclick] {
+            cursor: pointer;
+        }
+
+        .movie-card[onclick]:hover::after {
+            content: '🔗 IMDb';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            color: #f5f5f7;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.7em;
+            z-index: 10;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .movie-poster {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: rgba(255, 255, 255, 0.15);
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .movie-poster img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .movie-info {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 50%;
+            padding: 12px 10px 10px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 5;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s 0.3s, opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .movie-card:hover .movie-info {
+            visibility: visible;
+            opacity: 1;
+            transition-delay: 0s;
+        }
+        
+        .movie-info-title {
+            text-align: center;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .movie-info-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            font-size: 0.71em;
+            line-height: 1.3;
+            display: inline;
+            color: #f5f5f7;
+            letter-spacing: -0.01em;
+        }
+
+        .movie-year {
+            color: rgba(245, 245, 247, 0.6);
+            font-size: 0.6em;
+            display: inline;
+            margin-left: 4px;
+            font-weight: 400;
+        }
+
+        .movie-actions {
+            display: none;
+        }
+
+        .movie-overlay {
+            display: none;
+        }
+        
+        .movie-info-actions button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 1;
+            line-height: 1;
+            font-weight: 400;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .movie-info-actions button:hover {
+            transform: scale(1.2);
+        }
+        
+        .thumbs-down-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background-image: url('data:image/png;base64,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');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            vertical-align: middle;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1d1d1f;
+            padding: 32px;
+            border-radius: 18px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 24px;
+            font-size: 1.75em;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #f5f5f7;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #f5f5f7;
+            font-size: 0.95em;
+            letter-spacing: -0.01em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #f5f5f7;
+            transition: all 0.3s;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: rgba(0, 122, 255, 0.6);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 13px 24px;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(245, 245, 247, 0.5);
+            font-size: 1.1em;
+        }
+
+        .empty-state div:first-child {
+            font-size: 3em;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        #sync-status {
+            text-align: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            margin-bottom: 24px;
+            font-size: 0.9em;
+            color: #86868b;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-weight: 500;
+        }
+
+        small {
+            color: rgba(245, 245, 247, 0.5);
+            font-size: 0.85em;
+        }
+
+        /* Custom scrollbar for Apple look */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .category h2 {
+                font-size: 1.4em;
+            }
+
+            .movie-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 12px;
+            }
+        }
+    </style>
                 </div>
             `;
             document.body.appendChild(recommendDiv);
