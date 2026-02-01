@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v5.3.0 - Real AI (Hugging Face)</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v5.4.0 - Smart Pattern Analysis</div>
         </header>
 
         <div class="controls">
@@ -1161,7 +1161,7 @@
             }
         });
 
-        // Real AI-Powered Recommendations using Hugging Face
+        // Smart Recommendations based on YOUR patterns
         async function getAIRecommendations() {
             if (movieData.watched.length === 0) {
                 alert('📽️ You need to mark some movies as "Watched" first so I can learn your taste!');
@@ -1173,9 +1173,9 @@
             recommendDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
             recommendDiv.innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px; border-radius: 16px; max-width: 600px; width: 100%; text-align: center;">
-                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🤖 AI Analyzing Your Taste...</h2>
+                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🧠 Analyzing Your Taste...</h2>
                     <div style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">
-                        Analyzing ${movieData.watched.length} watched movies with AI...
+                        Analyzing ${movieData.watched.length} watched movies to find patterns...
                     </div>
                     <div style="font-size: 3em; animation: spin 1s linear infinite;">🎬</div>
                     <style>
@@ -1189,82 +1189,115 @@
             document.body.appendChild(recommendDiv);
 
             try {
-                // Build context from watched movies
-                const watchedList = movieData.watched.slice(0, 15).map(m => `${m.title} (${m.year})`).join(', ');
-                
-                const prompt = `Based on these movies I've watched and loved: ${watchedList}
-
-Recommend exactly 8 movies I would enjoy. For each movie, provide: title, year (2000-2026), and a brief reason why I'd like it.
-
-Format as JSON array:
-[{"title":"Movie Title","year":2020,"reason":"One sentence why"}]
-
-Return ONLY the JSON array, no other text.`;
-
-                // Call Hugging Face Inference API (free tier)
-                const response = await fetch('https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        inputs: prompt,
-                        parameters: {
-                            max_new_tokens: 1000,
-                            temperature: 0.7,
-                            return_full_text: false
-                        }
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('AI API failed');
-                }
-
-                const data = await response.json();
-                const aiResponse = data[0]?.generated_text || data.generated_text || '';
-                
-                // Extract JSON from response
-                const jsonMatch = aiResponse.match(/\[[\s\S]*?\]/);
-                if (!jsonMatch) {
-                    throw new Error('Could not parse AI response');
-                }
-                
-                const recommendations = JSON.parse(jsonMatch[0]);
-
-                // Enrich with TMDB data (posters, IMDb IDs)
-                const enrichedRecs = await Promise.all(
-                    recommendations.map(async rec => {
+                // Step 1: Get TMDB IDs and genres for watched movies
+                const watchedDetails = await Promise.all(
+                    movieData.watched.slice(0, 20).map(async movie => {
                         try {
-                            const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(rec.title)}&year=${rec.year}`);
-                            const tmdbData = await tmdbRes.json();
-                            if (tmdbData.results && tmdbData.results[0]) {
-                                const movie = tmdbData.results[0];
-                                const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                            const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movie.title)}&year=${movie.year}`);
+                            const searchData = await searchRes.json();
+                            if (searchData.results && searchData.results[0]) {
+                                const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${searchData.results[0].id}?api_key=${TMDB_API_KEY}`);
                                 const details = await detailsRes.json();
                                 return {
-                                    title: movie.title,
-                                    year: movie.release_date ? movie.release_date.split('-')[0] : rec.year,
-                                    poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
-                                    imdbId: details.imdb_id || null,
-                                    reason: rec.reason
+                                    genres: details.genres || [],
+                                    year: parseInt(movie.year),
+                                    rating: details.vote_average || 0
                                 };
                             }
-                            return rec;
+                        } catch (e) {
+                            return null;
+                        }
+                        return null;
+                    })
+                );
+
+                const validDetails = watchedDetails.filter(d => d !== null);
+                
+                // Step 2: Analyze patterns
+                const genreCounts = {};
+                let totalYear = 0;
+                let minRating = 10;
+                
+                validDetails.forEach(detail => {
+                    detail.genres.forEach(genre => {
+                        genreCounts[genre.id] = (genreCounts[genre.id] || 0) + 1;
+                    });
+                    totalYear += detail.year;
+                    if (detail.rating < minRating && detail.rating > 0) minRating = detail.rating;
+                });
+
+                // Find top 3 genres
+                const topGenres = Object.entries(genreCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([id]) => parseInt(id));
+
+                const avgYear = Math.round(totalYear / validDetails.length);
+                
+                // Step 3: Search TMDB for movies matching patterns
+                const recommendations = new Set();
+                
+                for (const genreId of topGenres) {
+                    try {
+                        const discoverRes = await fetch(
+                            `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}&vote_average.gte=${minRating - 1}&primary_release_date.gte=${avgYear - 10}-01-01&sort_by=vote_average.desc&vote_count.gte=100`
+                        );
+                        const discoverData = await discoverRes.json();
+                        
+                        if (discoverData.results) {
+                            discoverData.results.slice(0, 5).forEach(movie => {
+                                // Don't recommend already watched
+                                const alreadyWatched = movieData.watched.some(w => 
+                                    w.title.toLowerCase() === movie.title.toLowerCase()
+                                );
+                                if (!alreadyWatched) {
+                                    recommendations.add(JSON.stringify(movie));
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Discovery error:', e);
+                    }
+                }
+
+                // Convert to array and enrich
+                const uniqueRecs = Array.from(recommendations)
+                    .map(json => JSON.parse(json))
+                    .slice(0, 12);
+
+                const enrichedRecs = await Promise.all(
+                    uniqueRecs.map(async movie => {
+                        try {
+                            const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                            const details = await detailsRes.json();
+                            return {
+                                title: movie.title,
+                                year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
+                                poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
+                                imdbId: details.imdb_id || null,
+                                reason: `Matches your taste in ${movie.genre_ids.length > 0 ? 'similar genres' : 'great movies'}`
+                            };
                         } catch {
-                            return rec;
+                            return {
+                                title: movie.title,
+                                year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
+                                poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
+                                reason: 'Recommended for you'
+                            };
                         }
                     })
                 );
 
-                document.body.removeChild(document.getElementById('loading-overlay'));
-                showRecommendations(enrichedRecs);
-
-            } catch (error) {
-                console.error('AI Recommendation error:', error);
                 const overlay = document.getElementById('loading-overlay');
                 if (overlay) document.body.removeChild(overlay);
-                alert('😕 AI recommendation failed. The free API might be overloaded. Try again in a moment!');
+                
+                showRecommendations(enrichedRecs.slice(0, 8));
+
+            } catch (error) {
+                console.error('Recommendation error:', error);
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) document.body.removeChild(overlay);
+                alert('😕 Failed to generate recommendations. Please try again.');
             }
         }
 
