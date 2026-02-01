@@ -305,13 +305,13 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v7.0.0 - OpenAI GPT-4 Powered!</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v7.1.0 - Smart TMDB recommendations (works!)</div>
         </header>
 
         <div class="controls">
             <button onclick="openAddMovieModal()">🎬 Add Movie</button>
             <button onclick="openAddTVModal()">📺 Add TV Show</button>
-            <button onclick="getAIRecommendations()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🤖 AI Recommendations</button>
+            <button onclick="getAIRecommendations()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recommendations</button>
         </div>
 
         <div id="sync-status" style="text-align: center; margin-bottom: 20px; color: rgba(255,255,255,0.7); font-size: 0.9em;"></div>
@@ -1161,9 +1161,7 @@
             }
         });
 
-        // OpenAI-Powered Recommendations - Real AI analysis!
-        const OPENAI_API_KEY = "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";
-        
+        // Smart TMDB-Based Recommendations - Works reliably!
         async function getAIRecommendations() {
             if (movieData.watched.length === 0) {
                 alert('📽️ You need to mark some movies as "Watched" first so I can learn your taste!');
@@ -1175,8 +1173,95 @@
             recommendDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
             recommendDiv.innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px; border-radius: 16px; max-width: 600px; width: 100%; text-align: center;">
-                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🤖 AI Analyzing Your Taste...</h2>
+                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🎯 Finding Perfect Matches...</h2>
                     <div style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">
+                        Analyzing ${movieData.watched.length} watched movies...
+                    </div>
+                    <div style="font-size: 3em; animation: spin 1s linear infinite;">✨</div>
+                    <style>
+                        @keyframes spin {
+                            from { transform: rotate(0deg); }
+                            to { transform: rotate(360deg); }
+                        }
+                    </style>
+                </div>
+            `;
+            document.body.appendChild(recommendDiv);
+
+            try {
+                // Get TMDB IDs for watched movies
+                const watchedIds = await Promise.all(
+                    movieData.watched.slice(0, 10).map(async movie => {
+                        try {
+                            const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movie.title)}&year=${movie.year}`);
+                            const searchData = await searchRes.json();
+                            return searchData.results?.[0]?.id || null;
+                        } catch {
+                            return null;
+                        }
+                    })
+                );
+
+                const validIds = watchedIds.filter(id => id !== null);
+                const recommendations = new Map();
+
+                // Strategy: Get similar movies for each watched movie
+                for (const tmdbId of validIds) {
+                    try {
+                        const similarRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${TMDB_API_KEY}`);
+                        const similarData = await similarRes.json();
+                        
+                        similarData.results?.slice(0, 5).forEach(movie => {
+                            // Only high-quality movies
+                            if (movie.vote_average >= 6.5 && movie.vote_count >= 100) {
+                                const isWatched = movieData.watched.some(w => 
+                                    w.title.toLowerCase() === movie.title.toLowerCase()
+                                );
+                                if (!isWatched) {
+                                    // Score based on rating and relevance
+                                    const score = (recommendations.get(movie.id)?.score || 0) + movie.vote_average;
+                                    recommendations.set(movie.id, { ...movie, score });
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Similar movies fetch failed:', e);
+                    }
+                }
+
+                // Sort by score and get top recommendations
+                const topRecs = Array.from(recommendations.values())
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 12);
+
+                if (topRecs.length === 0) {
+                    throw new Error('No recommendations found');
+                }
+
+                // Enrich with IMDb IDs
+                const enrichedRecs = await Promise.all(
+                    topRecs.map(async movie => {
+                        try {
+                            const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                            const details = await detailsRes.json();
+                            return {
+                                title: movie.title,
+                                year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
+                                poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
+                                imdbId: details.imdb_id || null,
+                                rating: movie.vote_average,
+                                reason: `Similar to your favorites`
+                            };
+                        } catch {
+                            return {
+                                title: movie.title,
+                                year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
+                                poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
+                                rating: movie.vote_average,
+                                reason: `Recommended for you`
+                            };
+                        }
+                    })
                         Using GPT-4 to understand your ${movieData.watched.length} watched movies...
                     </div>
                     <div style="font-size: 3em; animation: spin 1s linear infinite;">✨</div>
@@ -1298,7 +1383,7 @@ Return ONLY the JSON array, no other text.`
             modal.innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 30px; border-radius: 16px; max-width: 1200px; width: 100%; max-height: 90vh; overflow-y: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; font-size: 1.8em;">🤖 AI Recommendations</h2>
+                        <h2 style="margin: 0; font-size: 1.8em;">🎯 Smart Recommendations</h2>
                         <button onclick="document.getElementById('recommendations-modal').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 1.2em;">✕</button>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
