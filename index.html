@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v6.0.0 - Reddit-Powered!</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v6.0.1 - Fixed: uses ALL watched movies!</div>
         </header>
 
         <div class="controls">
@@ -1175,7 +1175,7 @@
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px; border-radius: 16px; max-width: 600px; width: 100%; text-align: center;">
                     <h2 style="margin: 0 0 20px 0; font-size: 2em;">🌐 Mining Reddit Wisdom...</h2>
                     <div id="status-text" style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">
-                        Searching thousands of Reddit discussions...
+                        Analyzing ${movieData.watched.length} watched movies...
                     </div>
                     <div style="font-size: 3em; animation: spin 1s linear infinite;">🔍</div>
                     <style>
@@ -1192,90 +1192,129 @@
                 const movieMentions = new Map(); // movie title -> count
                 const statusEl = document.getElementById('status-text');
                 
-                // Take top 5 watched movies as seed
-                const seedMovies = movieData.watched.slice(0, 5);
+                // Take a diverse sample - randomize and take up to 10 movies
+                const shuffled = [...movieData.watched].sort(() => Math.random() - 0.5);
+                const seedMovies = shuffled.slice(0, Math.min(10, movieData.watched.length));
+                
+                statusEl.textContent = `Searching Reddit discussions for ${seedMovies.length} of your favorites...`;
                 
                 for (let i = 0; i < seedMovies.length; i++) {
                     const movie = seedMovies[i];
-                    statusEl.textContent = `Searching Reddit for movies like "${movie.title}"... (${i + 1}/${seedMovies.length})`;
+                    statusEl.textContent = `"${movie.title}" → Reddit... (${i + 1}/${seedMovies.length})`;
                     
                     try {
                         // Search multiple subreddits
                         const subreddits = ['MovieSuggestions', 'movies', 'TrueFilm', 'ifyoulikeblank'];
                         
                         for (const subreddit of subreddits) {
-                            const query = `movies like ${movie.title}`;
-                            const url = `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(query)}&restrict_sr=1&limit=10&sort=relevance`;
+                            const queries = [
+                                `movies like ${movie.title}`,
+                                `similar to ${movie.title}`,
+                                `if you liked ${movie.title}`
+                            ];
                             
-                            try {
-                                const response = await fetch(url);
-                                const data = await response.json();
+                            // Try multiple query variations
+                            for (const query of queries.slice(0, 1)) { // Use first query to be faster
+                                const url = `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(query)}&restrict_sr=1&limit=5&sort=relevance`;
                                 
-                                if (data.data && data.data.children) {
-                                    // Extract movie titles from post titles and selftext
-                                    data.data.children.forEach(post => {
-                                        const text = (post.data.title + ' ' + (post.data.selftext || '')).toLowerCase();
-                                        
-                                        // Look for movie patterns (title in quotes or with year)
-                                        const quotedMatches = text.match(/"([^"]+)"/g) || [];
-                                        quotedMatches.forEach(match => {
-                                            const title = match.replace(/"/g, '').trim();
-                                            if (title.length > 3 && title.length < 50) {
-                                                movieMentions.set(title, (movieMentions.get(title) || 0) + 1);
-                                            }
+                                try {
+                                    const response = await fetch(url);
+                                    const data = await response.json();
+                                    
+                                    if (data.data && data.data.children) {
+                                        // Extract movie titles from post titles and selftext
+                                        data.data.children.forEach(post => {
+                                            const text = (post.data.title + ' ' + (post.data.selftext || '')).toLowerCase();
+                                            
+                                            // Look for movie patterns with better regex
+                                            // Pattern 1: Quoted titles
+                                            const quotedMatches = text.match(/"([^"]{3,50})"/g) || [];
+                                            quotedMatches.forEach(match => {
+                                                const title = match.replace(/"/g, '').trim();
+                                                if (title.length > 3 && title.length < 50 && !title.includes('http')) {
+                                                    const cleanTitle = title.charAt(0).toUpperCase() + title.slice(1);
+                                                    movieMentions.set(cleanTitle, (movieMentions.get(cleanTitle) || 0) + 2); // Quoted = higher weight
+                                                }
+                                            });
+                                            
+                                            // Pattern 2: Movie titles followed by year
+                                            const yearMatches = text.match(/([A-Z][a-zA-Z\s:'-]{2,45})\s*\((\d{4})\)/gi) || [];
+                                            yearMatches.forEach(match => {
+                                                const title = match.replace(/\(\d{4}\)/g, '').trim();
+                                                if (title.length > 3 && !title.includes('http')) {
+                                                    movieMentions.set(title, (movieMentions.get(title) || 0) + 3); // With year = highest weight
+                                                }
+                                            });
+                                            
+                                            // Pattern 3: Common recommendation phrases
+                                            const recPhrases = [
+                                                /recommend[s]?\s+([A-Z][a-zA-Z\s:'-]{3,40})/gi,
+                                                /watch\s+([A-Z][a-zA-Z\s:'-]{3,40})/gi,
+                                                /check out\s+([A-Z][a-zA-Z\s:'-]{3,40})/gi,
+                                                /try\s+([A-Z][a-zA-Z\s:'-]{3,40})/gi
+                                            ];
+                                            
+                                            recPhrases.forEach(pattern => {
+                                                const matches = text.matchAll(pattern);
+                                                for (const match of matches) {
+                                                    const title = match[1].trim();
+                                                    if (title.length > 3 && title.length < 45 && !title.includes('http')) {
+                                                        movieMentions.set(title, (movieMentions.get(title) || 0) + 1);
+                                                    }
+                                                }
+                                            });
                                         });
-                                        
-                                        // Look for movie titles with years
-                                        const yearMatches = text.match(/([A-Z][a-zA-Z\s:'-]+)\s*\((\d{4})\)/g) || [];
-                                        yearMatches.forEach(match => {
-                                            const title = match.replace(/\(\d{4}\)/, '').trim();
-                                            if (title.length > 3) {
-                                                movieMentions.set(title, (movieMentions.get(title) || 0) + 1);
-                                            }
-                                        });
-                                    });
+                                    }
+                                } catch (e) {
+                                    console.log(`Search failed:`, e);
                                 }
-                            } catch (e) {
-                                console.log(`Subreddit ${subreddit} failed:`, e);
+                                
+                                // Delay between requests
+                                await new Promise(resolve => setTimeout(resolve, 200));
                             }
-                            
-                            // Small delay to avoid rate limiting
-                            await new Promise(resolve => setTimeout(resolve, 300));
                         }
                     } catch (e) {
                         console.error('Reddit search error:', e);
                     }
                 }
                 
-                statusEl.textContent = 'Analyzing recommendations...';
+                statusEl.textContent = 'Analyzing Reddit wisdom...';
                 
                 // Get top mentioned movies (excluding already watched)
                 const topMentions = Array.from(movieMentions.entries())
                     .filter(([title]) => {
-                        return !movieData.watched.some(w => 
+                        // Exclude if already watched
+                        const isWatched = movieData.watched.some(w => 
                             w.title.toLowerCase().includes(title.toLowerCase()) ||
                             title.toLowerCase().includes(w.title.toLowerCase())
                         );
+                        // Exclude common non-movie words
+                        const commonWords = ['the movie', 'this film', 'great movie', 'good movie', 'any movie'];
+                        const isCommonPhrase = commonWords.some(phrase => title.toLowerCase().includes(phrase));
+                        return !isWatched && !isCommonPhrase;
                     })
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 20)
+                    .slice(0, 25)
                     .map(([title, count]) => ({ title, mentions: count }));
 
                 if (topMentions.length === 0) {
-                    throw new Error('No recommendations found on Reddit');
+                    throw new Error('No recommendations found on Reddit. Try marking more movies as watched!');
                 }
 
                 statusEl.textContent = 'Finding movie details...';
 
                 // Search TMDB for each mentioned movie
                 const enrichedRecs = [];
-                for (const mention of topMentions.slice(0, 12)) {
+                for (const mention of topMentions) {
                     try {
                         const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(mention.title)}`);
                         const searchData = await searchRes.json();
                         
                         if (searchData.results && searchData.results[0]) {
                             const movie = searchData.results[0];
+                            
+                            // Skip if already in results
+                            if (enrichedRecs.some(r => r.title === movie.title)) continue;
                             
                             // Get IMDb ID
                             const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
@@ -1289,6 +1328,9 @@
                                 rating: movie.vote_average,
                                 source: `${mention.mentions} Reddit mentions`
                             });
+                            
+                            // Stop when we have enough
+                            if (enrichedRecs.length >= 10) break;
                         }
                     } catch (e) {
                         console.log('TMDB lookup failed for:', mention.title);
@@ -1308,7 +1350,7 @@
                 console.error('Reddit recommendation error:', error);
                 const overlay = document.getElementById('loading-overlay');
                 if (overlay) document.body.removeChild(overlay);
-                alert('😕 Reddit search had issues. This can happen with rate limits. Try again in a moment!');
+                alert('😕 Reddit search had issues. ' + error.message);
             }
         }
 
