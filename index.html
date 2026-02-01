@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v5.4.0 - Smart Pattern Analysis</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v5.5.0 - Deep Analysis (directors, actors, themes)</div>
         </header>
 
         <div class="controls">
@@ -1161,7 +1161,7 @@
             }
         });
 
-        // Smart Recommendations based on YOUR patterns
+        // Advanced Smart Recommendations - analyzes directors, cast, themes
         async function getAIRecommendations() {
             if (movieData.watched.length === 0) {
                 alert('📽️ You need to mark some movies as "Watched" first so I can learn your taste!');
@@ -1173,11 +1173,11 @@
             recommendDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
             recommendDiv.innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px; border-radius: 16px; max-width: 600px; width: 100%; text-align: center;">
-                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🧠 Analyzing Your Taste...</h2>
+                    <h2 style="margin: 0 0 20px 0; font-size: 2em;">🎬 Finding Your Perfect Matches...</h2>
                     <div style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">
-                        Analyzing ${movieData.watched.length} watched movies to find patterns...
+                        Deep-diving into ${movieData.watched.length} movies...
                     </div>
-                    <div style="font-size: 3em; animation: spin 1s linear infinite;">🎬</div>
+                    <div style="font-size: 3em; animation: spin 1s linear infinite;">🎯</div>
                     <style>
                         @keyframes spin {
                             from { transform: rotate(0deg); }
@@ -1189,19 +1189,32 @@
             document.body.appendChild(recommendDiv);
 
             try {
-                // Step 1: Get TMDB IDs and genres for watched movies
+                // Get full details for watched movies
                 const watchedDetails = await Promise.all(
-                    movieData.watched.slice(0, 20).map(async movie => {
+                    movieData.watched.slice(0, 15).map(async movie => {
                         try {
                             const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movie.title)}&year=${movie.year}`);
                             const searchData = await searchRes.json();
                             if (searchData.results && searchData.results[0]) {
-                                const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${searchData.results[0].id}?api_key=${TMDB_API_KEY}`);
+                                const movieId = searchData.results[0].id;
+                                
+                                // Get full details + credits
+                                const [detailsRes, creditsRes] = await Promise.all([
+                                    fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}`),
+                                    fetch(`https://api.themoviedb.org/3/movie/${movieId}/credits?api_key=${TMDB_API_KEY}`)
+                                ]);
+                                
                                 const details = await detailsRes.json();
+                                const credits = await creditsRes.json();
+                                
                                 return {
+                                    id: movieId,
                                     genres: details.genres || [],
-                                    year: parseInt(movie.year),
-                                    rating: details.vote_average || 0
+                                    director: credits.crew?.find(c => c.job === 'Director')?.name,
+                                    cast: credits.cast?.slice(0, 3).map(c => c.name) || [],
+                                    keywords: details.keywords?.keywords || [],
+                                    rating: details.vote_average || 0,
+                                    year: parseInt(movie.year)
                                 };
                             }
                         } catch (e) {
@@ -1213,58 +1226,97 @@
 
                 const validDetails = watchedDetails.filter(d => d !== null);
                 
-                // Step 2: Analyze patterns
+                // Analyze patterns
+                const directorCounts = {};
+                const actorCounts = {};
                 const genreCounts = {};
-                let totalYear = 0;
-                let minRating = 10;
                 
                 validDetails.forEach(detail => {
+                    if (detail.director) {
+                        directorCounts[detail.director] = (directorCounts[detail.director] || 0) + 1;
+                    }
+                    detail.cast.forEach(actor => {
+                        actorCounts[actor] = (actorCounts[actor] || 0) + 1;
+                    });
                     detail.genres.forEach(genre => {
                         genreCounts[genre.id] = (genreCounts[genre.id] || 0) + 1;
                     });
-                    totalYear += detail.year;
-                    if (detail.rating < minRating && detail.rating > 0) minRating = detail.rating;
                 });
 
-                // Find top 3 genres
+                // Get favorite directors (2+ movies)
+                const favDirectors = Object.entries(directorCounts)
+                    .filter(([_, count]) => count >= 2)
+                    .map(([name]) => name);
+                
+                // Get favorite actors (2+ movies)
+                const favActors = Object.entries(actorCounts)
+                    .filter(([_, count]) => count >= 2)
+                    .map(([name]) => name);
+
+                // Get top genres
                 const topGenres = Object.entries(genreCounts)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 3)
                     .map(([id]) => parseInt(id));
 
-                const avgYear = Math.round(totalYear / validDetails.length);
+                const recommendations = new Map();
                 
-                // Step 3: Search TMDB for movies matching patterns
-                const recommendations = new Set();
-                
-                for (const genreId of topGenres) {
+                // Strategy 1: Get similar movies to your favorites
+                for (const detail of validDetails.slice(0, 5)) {
+                    try {
+                        const similarRes = await fetch(`https://api.themoviedb.org/3/movie/${detail.id}/similar?api_key=${TMDB_API_KEY}`);
+                        const similarData = await similarRes.json();
+                        
+                        similarData.results?.slice(0, 3).forEach(movie => {
+                            if (movie.vote_average >= 6.5) {
+                                recommendations.set(movie.id, { ...movie, source: 'similar' });
+                            }
+                        });
+                    } catch (e) {}
+                }
+
+                // Strategy 2: Search by favorite directors
+                for (const director of favDirectors.slice(0, 2)) {
+                    try {
+                        const searchRes = await fetch(`https://api.themoviedb.org/3/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(director)}`);
+                        const searchData = await searchRes.json();
+                        
+                        if (searchData.results?.[0]) {
+                            const directorId = searchData.results[0].id;
+                            const creditsRes = await fetch(`https://api.themoviedb.org/3/person/${directorId}/movie_credits?api_key=${TMDB_API_KEY}`);
+                            const credits = await creditsRes.json();
+                            
+                            credits.crew?.filter(m => m.job === 'Director' && m.vote_average >= 6.5)
+                                .slice(0, 3)
+                                .forEach(movie => {
+                                    recommendations.set(movie.id, { ...movie, source: `director: ${director}` });
+                                });
+                        }
+                    } catch (e) {}
+                }
+
+                // Strategy 3: Top-rated in favorite genres
+                for (const genreId of topGenres.slice(0, 2)) {
                     try {
                         const discoverRes = await fetch(
-                            `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}&vote_average.gte=${minRating - 1}&primary_release_date.gte=${avgYear - 10}-01-01&sort_by=vote_average.desc&vote_count.gte=100`
+                            `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=500&vote_average.gte=7`
                         );
                         const discoverData = await discoverRes.json();
                         
-                        if (discoverData.results) {
-                            discoverData.results.slice(0, 5).forEach(movie => {
-                                // Don't recommend already watched
-                                const alreadyWatched = movieData.watched.some(w => 
-                                    w.title.toLowerCase() === movie.title.toLowerCase()
-                                );
-                                if (!alreadyWatched) {
-                                    recommendations.add(JSON.stringify(movie));
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        console.error('Discovery error:', e);
-                    }
+                        discoverData.results?.slice(0, 3).forEach(movie => {
+                            recommendations.set(movie.id, { ...movie, source: 'genre match' });
+                        });
+                    } catch (e) {}
                 }
 
-                // Convert to array and enrich
-                const uniqueRecs = Array.from(recommendations)
-                    .map(json => JSON.parse(json))
+                // Filter out watched movies
+                const uniqueRecs = Array.from(recommendations.values())
+                    .filter(rec => !movieData.watched.some(w => 
+                        w.title.toLowerCase() === rec.title.toLowerCase()
+                    ))
                     .slice(0, 12);
 
+                // Enrich with IMDb IDs
                 const enrichedRecs = await Promise.all(
                     uniqueRecs.map(async movie => {
                         try {
@@ -1275,14 +1327,16 @@
                                 year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
                                 poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
                                 imdbId: details.imdb_id || null,
-                                reason: `Matches your taste in ${movie.genre_ids.length > 0 ? 'similar genres' : 'great movies'}`
+                                rating: movie.vote_average,
+                                source: movie.source
                             };
                         } catch {
                             return {
                                 title: movie.title,
                                 year: movie.release_date ? movie.release_date.split('-')[0] : 'TBA',
                                 poster: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
-                                reason: 'Recommended for you'
+                                rating: movie.vote_average,
+                                source: movie.source
                             };
                         }
                     })
@@ -1297,7 +1351,7 @@
                 console.error('Recommendation error:', error);
                 const overlay = document.getElementById('loading-overlay');
                 if (overlay) document.body.removeChild(overlay);
-                alert('😕 Failed to generate recommendations. Please try again.');
+                alert('😕 Something went wrong. Try again!');
             }
         }
 
@@ -1310,7 +1364,7 @@
             modal.innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 30px; border-radius: 16px; max-width: 1200px; width: 100%; max-height: 90vh; overflow-y: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; font-size: 1.8em;">🤖 AI Recommendations for You</h2>
+                        <h2 style="margin: 0; font-size: 1.8em;">🎯 Picked Just for You</h2>
                         <button onclick="document.getElementById('recommendations-modal').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 1.2em;">✕</button>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
@@ -1324,8 +1378,8 @@
                                 </div>
                                 <div style="padding: 15px;">
                                     <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px;">${rec.title}</div>
-                                    <div style="color: rgba(255,255,255,0.7); font-size: 0.9em; margin-bottom: 8px;">${rec.year}</div>
-                                    <div style="color: rgba(255,255,255,0.8); font-size: 0.85em; font-style: italic; line-height: 1.3;">${rec.reason || 'Recommended for you'}</div>
+                                    <div style="color: rgba(255,255,255,0.7); font-size: 0.9em; margin-bottom: 8px;">${rec.year} • ⭐ ${rec.rating?.toFixed(1) || 'N/A'}</div>
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 0.8em; font-style: italic; text-transform: capitalize;">${rec.source || 'recommended'}</div>
                                     <div style="margin-top: 12px; padding: 8px; background: rgba(76,175,80,0.3); border-radius: 6px; text-align: center; font-weight: 600;">
                                         ➕ Add to Watchlist
                                     </div>
