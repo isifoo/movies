@@ -305,7 +305,7 @@
         <header>
             <h1>🎬 Gerry's Movies and TV Show Tracker</h1>
             <p>Track movies you want to watch and get personalized recommendations</p>
-            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v3.0.1 - Faster IMDb search</div>
+            <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-top: 5px;">v3.0.2 - Faster proxy</div>
         </header>
 
         <div class="controls">
@@ -643,9 +643,9 @@
             resultsDiv.style.display = 'block';
 
             try {
-                // Step 1: Fetch IMDb search results page  
+                // Step 1: Fetch IMDb search results page - trying faster proxy
                 const imdbSearchUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(query)}&s=tt&ttype=ft`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imdbSearchUrl)}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imdbSearchUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 const html = await response.text();
@@ -653,10 +653,10 @@
                 // Step 2: Extract IMDb IDs from HTML
                 const imdbIdRegex = /\/title\/(tt\d+)/g;
                 const matches = [...html.matchAll(imdbIdRegex)];
-                const imdbIds = [...new Set(matches.map(m => m[1]))].slice(0, 6); // Reduced to 6 for speed
+                const imdbIds = [...new Set(matches.map(m => m[1]))].slice(0, 6);
                 
                 if (imdbIds.length > 0) {
-                    // Step 3: Fetch movie data from OMDb - but faster with Promise.allSettled
+                    // Step 3: Fetch movie data from OMDb - parallel and fast
                     resultsGrid.innerHTML = '<div style="text-align: center; padding: 20px; grid-column: 1 / -1;">✨ Loading details...</div>';
                     
                     const moviePromises = imdbIds.map(async imdbId => {
@@ -675,7 +675,6 @@
 
                     if (movies.length > 0) {
                         resultsGrid.innerHTML = movies.map(movie => {
-                            // Use actual title, or show year if title is "Untitled"
                             const displayTitle = movie.Title === 'Untitled' 
                                 ? `Untitled (${movie.Year})` 
                                 : movie.Title;
@@ -755,7 +754,7 @@
             try {
                 // Step 1: Fetch IMDb search results page for TV series
                 const imdbSearchUrl = `https://www.imdb.com/find/?q=${encodeURIComponent(query)}&s=tt&ttype=tv`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imdbSearchUrl)}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imdbSearchUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 const html = await response.text();
