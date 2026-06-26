@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v11.2.0</title>
+    <title>Gerry's Movies and TV Show Tracker v11.3.1</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -484,6 +484,13 @@
 
         <div class="category">
             <div class="category-header">
+                <h2>🤞 One Day <span class="count" id="not-my-cup-of-tea-count">0</span></h2>
+            </div>
+            <div class="movie-grid" id="not-my-cup-of-tea-grid"></div>
+        </div>
+
+        <div class="category">
+            <div class="category-header">
                 <h2>📺 TV Shows <span class="count" id="recommended-count">0</span></h2>
             </div>
             <div class="movie-grid" id="recommended-grid"></div>
@@ -496,12 +503,6 @@
             <div class="movie-grid" id="watched-grid"></div>
         </div>
 
-        <div class="category">
-            <div class="category-header">
-                <h2>👎 Not My Cup of Tea <span class="count" id="not-my-cup-of-tea-count">0</span></h2>
-            </div>
-            <div class="movie-grid" id="not-my-cup-of-tea-grid"></div>
-        </div>
 
         <!-- Technical Controls at Bottom -->
         <div style="margin-top: 50px; padding-top: 30px; border-top: 2px solid rgba(255,255,255,0.2);">
@@ -652,10 +653,10 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v11.2.0";
+        const APP_VERSION = "v11.3.1";
         
         // Password Protection (set your password here)
-        const PASSWORD_HASH = "d32b1f29f0daa520aad79c2b17dd1a57452518ed31fcaf5eecbd04fa7e2aa835"; // Custom password
+        const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
         // To generate a new password hash, open browser console and run:
         // crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourpassword')).then(h => console.log(Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('')))
         
@@ -916,9 +917,9 @@
         function renderAll() {
             renderCategory('wantToWatch', 'want-to-watch-grid', 'want-count');
             renderCategory('comingSoon', 'coming-soon-grid', 'coming-soon-count');
+            renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
             renderCategory('recommended', 'recommended-grid', 'recommended-count');
             renderCategory('watched', 'watched-grid', 'watched-count');
-            renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
         }
 
         // Render a specific category
@@ -962,7 +963,7 @@
                         <div class="movie-info-actions">
                             ${category === 'wantToWatch' || category === 'recommended' ? 
                                 `<button onclick="requireAuth(() => markAsWatched(\'${category}\', ${movie.id}))" title="Mark as Watched">👁</button>
-                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea(\'${category}\', ${movie.id}))" title="Not My Cup of Tea"><span class="thumbs-down-icon"></span></button>` : 
+                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea(\'${category}\', ${movie.id}))" title="One Day">🤞</button>` : 
                               category === 'watched' ?
                                 `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
                                 `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
