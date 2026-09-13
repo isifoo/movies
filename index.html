@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v12.5.0</title>
+    <title>Gerry's Movies and TV Show Tracker v13.2.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -134,6 +134,28 @@
             color: #f5f5f7;
         }
 
+        .decade-header {
+            grid-column: 1 / -1;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: rgba(245, 245, 247, 0.6);
+            letter-spacing: -0.01em;
+            margin: 28px 0 4px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .decade-header:first-child {
+            margin-top: 0;
+        }
+
+        .decade-count {
+            font-weight: 400;
+            color: rgba(245, 245, 247, 0.35);
+            font-size: 0.85em;
+            margin-left: 6px;
+        }
+
         .count {
             background: rgba(255, 255, 255, 0.08);
             padding: 6px 14px;
@@ -242,6 +264,8 @@
             align-items: center;
             justify-content: center;
             flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
         }
         
         .movie-info-actions {
@@ -249,13 +273,17 @@
             gap: 10px;
             justify-content: center;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .movie-title {
             font-weight: 600;
             font-size: 0.71em;
             line-height: 1.3;
-            display: inline;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
             color: #f5f5f7;
             letter-spacing: -0.01em;
         }
@@ -665,7 +693,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v12.5.0";
+        const APP_VERSION = "v13.2.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -903,7 +931,7 @@
             checkAndMoveReleasedMovies();
             
             renderAll();
-            startQuickPickRotation();
+            renderQuickPickInitial();
         }
 
         // Save data to localStorage AND Firebase (auto-sync!)
@@ -932,23 +960,32 @@
             renderCategory('comingSoon', 'coming-soon-grid', 'coming-soon-count');
             renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
             renderCategory('recommended', 'recommended-grid', 'recommended-count');
-            renderCategory('watched', 'watched-grid', 'watched-count');
-            renderQuickPick();
+            renderWatchedByDecade();
+            // Quick Pick is intentionally NOT reshuffled here - it only changes when
+            // you click Refresh (full reshuffle) or action a tile (that tile swaps).
+            // Otherwise adding/editing something elsewhere would wipe your current picks.
         }
 
-        // Quick Pick: shows 10 random critically-acclaimed movies from TMDB
+        // First-time setup: Quick Pick needs one initial render since renderAll() no longer includes it.
+        function renderQuickPickInitial() {
+            if (document.getElementById('quick-pick-grid').children.length === 0) {
+                renderQuickPick();
+            }
+        }
+
+        // Quick Pick: shows random critically-acclaimed movies from TMDB
         // that aren't already anywhere in the tracker, so you can rapid-fire
-        // add ones you've already seen straight to Watched.
-        let quickPickInterval = null;
+        // add ones you've already seen straight to Watched. Refreshes only
+        // when the Refresh button is clicked (full reshuffle) or when you
+        // action a single tile (that one tile is replaced, others stay put).
         let quickPickPool = []; // cached candidates fetched from TMDB
         let quickPickLoading = false;
         let quickPickLookup = {}; // tmdbId -> { title, year, poster } for the currently rendered picks
+        let quickPickDisplayed = []; // the exact set of tmdbIds currently shown, in display order
 
-        const QUICK_PICK_MAX_SHOWS = 2; // retire a title after it's been shown this many times
-        const QUICK_PICK_SEEN_KEY = 'quickPickSeenLog';
         const QUICK_PICK_HIDDEN_KEY = 'quickPickHiddenIds';
 
-        // Permanently hidden ids (X button) - never expire, unlike the monthly seen log
+        // Permanently hidden ids (X button) - never expire
         function loadQuickPickHidden() {
             try {
                 const raw = localStorage.getItem(QUICK_PICK_HIDDEN_KEY);
@@ -976,37 +1013,8 @@
             }
             quickPickPool = quickPickPool.filter(m => m.id !== tmdbId);
             delete quickPickLookup[tmdbId];
-            renderQuickPick();
+            replaceQuickPickTile(tmdbId);
         }
-
-        // Seen log: { month: "2026-02", counts: { tmdbId: timesShown } }
-        // Resets automatically once the calendar month changes.
-        function loadQuickPickSeenLog() {
-            const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
-            try {
-                const raw = localStorage.getItem(QUICK_PICK_SEEN_KEY);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (parsed.month === currentMonth) {
-                        return parsed;
-                    }
-                }
-            } catch (error) {
-                console.error('Quick Pick seen log read error:', error);
-            }
-            // No log yet, or it's from a previous month - start fresh
-            return { month: currentMonth, counts: {} };
-        }
-
-        function saveQuickPickSeenLog(log) {
-            try {
-                localStorage.setItem(QUICK_PICK_SEEN_KEY, JSON.stringify(log));
-            } catch (error) {
-                console.error('Quick Pick seen log write error:', error);
-            }
-        }
-
-        let quickPickSeenLog = loadQuickPickSeenLog();
 
         function movieAlreadyTracked(tmdbId, title, year) {
             const allCategories = ['wantToWatch', 'comingSoon', 'notMyCupOfTea', 'recommended', 'watched'];
@@ -1043,19 +1051,26 @@
             }
         ];
 
-        // Per-source page cursor, so each source paginates independently and none of them wrap prematurely
-        let quickPickSourcePages = QUICK_PICK_SOURCES.map(() => 1);
+        // Random starting page per source (1 to ~half of maxPage, leaving room to
+        // page forward before wrapping) so discover/top_rated don't always start
+        // at their exhausted front pages once you've watched hundreds of movies.
+        function randomStartPage(maxPage) {
+            return Math.floor(Math.random() * (maxPage / 2)) + 1;
+        }
 
-        async function fetchQuickPickBatch() {
+        let quickPickSourcePages = QUICK_PICK_SOURCES.map(s => randomStartPage(s.maxPage));
+
+        async function fetchQuickPickBatch(minUnusedNeeded = QUICK_PICK_COUNT) {
             if (quickPickLoading) return;
             quickPickLoading = true;
             quickPickLastError = null;
             const MAX_REQUESTS_PER_CALL = 20; // safety cap across all sources combined
+            const hasEnoughUnused = () => quickPickPool.filter(m => !quickPickDisplayed.includes(m.id)).length >= minUnusedNeeded;
             try {
                 let requestsMade = 0;
                 let sourceIndex = 0;
                 let lastGoodResponse = false;
-                while (quickPickPool.length < QUICK_PICK_COUNT && requestsMade < MAX_REQUESTS_PER_CALL) {
+                while (!hasEnoughUnused() && requestsMade < MAX_REQUESTS_PER_CALL) {
                     const source = QUICK_PICK_SOURCES[sourceIndex % QUICK_PICK_SOURCES.length];
                     const srcIdx = sourceIndex % QUICK_PICK_SOURCES.length;
                     const page = quickPickSourcePages[srcIdx];
@@ -1071,14 +1086,15 @@
                             // Only surface an error on screen if we haven't had any successful response at all this round
                             quickPickLastError = `HTTP ${res.status} from ${source.name}: ${bodyText || 'no response body'}`;
                         }
-                        quickPickSourcePages[srcIdx] = 1; // reset this source's cursor, move to next source
+                        quickPickSourcePages[srcIdx] = randomStartPage(source.maxPage); // jump somewhere new, move to next source
                         sourceIndex++;
                         continue;
                     }
 
                     lastGoodResponse = true;
                     const data = await res.json();
-                    quickPickSourcePages[srcIdx] = page >= source.maxPage ? 1 : page + 1;
+                    // Wrap to a fresh random page instead of always looping back to page 1
+                    quickPickSourcePages[srcIdx] = page >= source.maxPage ? randomStartPage(source.maxPage) : page + 1;
                     sourceIndex++;
 
                     if (data.results) {
@@ -1088,8 +1104,7 @@
                             m.vote_average >= QUICK_PICK_MIN_RATING &&
                             !movieAlreadyTracked(m.id, m.title, m.release_date ? m.release_date.split('-')[0] : '') &&
                             !quickPickPool.some(p => p.id === m.id) &&
-                            !quickPickHidden.includes(m.id) &&
-                            (quickPickSeenLog.counts[m.id] || 0) < QUICK_PICK_MAX_SHOWS
+                            !quickPickHidden.includes(m.id)
                         );
                         console.log(`Quick Pick [${source.name}] page ${page}: ${totalRaw} raw, ${passRating} pass rating >=${QUICK_PICK_MIN_RATING}, ${fresh.length} survive all filters. Pool now: ${quickPickPool.length + fresh.length}`);
                         quickPickPool.push(...fresh);
@@ -1107,77 +1122,19 @@
 
         const QUICK_PICK_COUNT = 25; // how many titles to show per rotation
 
-        async function renderQuickPick() {
-            const grid = document.getElementById('quick-pick-grid');
-            const count = document.getElementById('quick-pick-count');
+        // Builds the HTML for one Quick Pick card. Shared by the full render
+        // and the single-tile replacement so both stay visually identical.
+        function buildQuickPickCardHtml(movie) {
+            const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+            const year = movie.release_date ? movie.release_date.split('-')[0] : '';
+            const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
 
-            // Drop anything that's hit its show limit since it was cached
-            // (handles the monthly reset changing mid-session too, since a
-            // fresh month means loadQuickPickSeenLog() below returns empty counts).
-            quickPickSeenLog = loadQuickPickSeenLog();
-            quickPickPool = quickPickPool.filter(m => (quickPickSeenLog.counts[m.id] || 0) < QUICK_PICK_MAX_SHOWS);
+            // Stash full data on a lookup map instead of inlining it into the
+            // onclick attribute (raw quotes/URLs in attributes break the HTML).
+            quickPickLookup[movie.id] = { title: movie.title, year, poster, imdbId: movie.imdbId };
 
-            if (quickPickPool.length < QUICK_PICK_COUNT) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div>🎲</div>
-                        <div>Finding critically acclaimed movies...</div>
-                    </div>
-                `;
-                await fetchQuickPickBatch();
-            }
-
-            if (quickPickPool.length === 0) {
-                count.textContent = 0;
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div>🎲</div>
-                        <div>Couldn't load suggestions right now.</div>
-                        ${quickPickLastError ? `<div style="margin-top: 8px; font-size: 0.75em; color: rgba(255,255,255,0.4); font-family: monospace;">${quickPickLastError}</div>` : '<div>Try again shortly.</div>'}
-                    </div>
-                `;
-                return;
-            }
-
-            // Shuffle a copy and take up to 10 for this rotation
-            const shuffled = [...quickPickPool].sort(() => Math.random() - 0.5);
-            const picks = shuffled.slice(0, QUICK_PICK_COUNT);
-
-            count.textContent = picks.length;
-
-            // Record that these picks were shown this round
-            picks.forEach(movie => {
-                quickPickSeenLog.counts[movie.id] = (quickPickSeenLog.counts[movie.id] || 0) + 1;
-            });
-            saveQuickPickSeenLog(quickPickSeenLog);
-            // Remove any that just hit the limit so they won't be picked again
-            quickPickPool = quickPickPool.filter(m => (quickPickSeenLog.counts[m.id] || 0) < QUICK_PICK_MAX_SHOWS);
-
-            // Fetch IMDb ids for this batch of picks so the poster can link out,
-            // same as every other section. Only picks missing a cached id are fetched.
-            await Promise.all(picks.map(async movie => {
-                if (movie.imdbId !== undefined) return; // already fetched earlier this session
-                try {
-                    const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
-                    const data = await res.json();
-                    movie.imdbId = data.imdb_id || null;
-                } catch (error) {
-                    console.error('Failed to fetch IMDb id for', movie.title, error);
-                    movie.imdbId = null;
-                }
-            }));
-
-            grid.innerHTML = picks.map(movie => {
-                const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
-                const year = movie.release_date ? movie.release_date.split('-')[0] : '';
-                const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
-
-                // Stash full data on a lookup map instead of inlining it into the
-                // onclick attribute (raw quotes/URLs in attributes break the HTML).
-                quickPickLookup[movie.id] = { title: movie.title, year, poster, imdbId: movie.imdbId };
-
-                return `
-                <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
+            return `
+                <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-poster">
                         ${poster ? `<img src="${poster}" alt="${movie.title}">` : '🎬'}
                     </div>
@@ -1192,7 +1149,105 @@
                         </div>
                     </div>
                 </div>
-            `}).join('');
+            `;
+        }
+
+        // Fetches IMDb ids for any of the given movies that don't already have one cached
+        async function ensureImdbIds(movies) {
+            await Promise.all(movies.map(async movie => {
+                if (movie.imdbId !== undefined) return; // already fetched earlier this session
+                try {
+                    const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                    const data = await res.json();
+                    movie.imdbId = data.imdb_id || null;
+                } catch (error) {
+                    console.error('Failed to fetch IMDb id for', movie.title, error);
+                    movie.imdbId = null;
+                }
+            }));
+        }
+
+        async function renderQuickPick() {
+            const grid = document.getElementById('quick-pick-grid');
+            const count = document.getElementById('quick-pick-count');
+
+            if (quickPickPool.length < QUICK_PICK_COUNT) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>🎲</div>
+                        <div>Finding critically acclaimed movies...</div>
+                    </div>
+                `;
+                await fetchQuickPickBatch();
+            }
+
+            if (quickPickPool.length === 0) {
+                count.textContent = 0;
+                quickPickDisplayed = [];
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>🎲</div>
+                        <div>Couldn't load suggestions right now.</div>
+                        ${quickPickLastError ? `<div style="margin-top: 8px; font-size: 0.75em; color: rgba(255,255,255,0.4); font-family: monospace;">${quickPickLastError}</div>` : '<div>Try again shortly.</div>'}
+                    </div>
+                `;
+                return;
+            }
+
+            // Shuffle a copy and take up to QUICK_PICK_COUNT for this rotation
+            const shuffled = [...quickPickPool].sort(() => Math.random() - 0.5);
+            const picks = shuffled.slice(0, QUICK_PICK_COUNT);
+
+            count.textContent = picks.length;
+            quickPickDisplayed = picks.map(m => m.id);
+
+            await ensureImdbIds(picks);
+
+            grid.innerHTML = picks.map(buildQuickPickCardHtml).join('');
+        }
+
+        // Replaces just the one tile that was actioned (watched/hidden) with a fresh
+        // pick from the pool, leaving every other currently-displayed tile untouched.
+        async function replaceQuickPickTile(tmdbId) {
+            const grid = document.getElementById('quick-pick-grid');
+            const count = document.getElementById('quick-pick-count');
+            const cardEl = grid.querySelector(`[data-tmdb-id="${tmdbId}"]`);
+
+            quickPickDisplayed = quickPickDisplayed.filter(id => id !== tmdbId);
+
+            // Find a replacement not already on screen
+            let replacement = quickPickPool.find(m => !quickPickDisplayed.includes(m.id));
+
+            // If every cached pool entry is already on screen (or the pool is thin),
+            // fetch a fresh batch rather than silently failing to find a replacement.
+            // Only need 1 unused candidate here, not a full new batch of 25.
+            if (!replacement) {
+                await fetchQuickPickBatch(1);
+                replacement = quickPickPool.find(m => !quickPickDisplayed.includes(m.id));
+            }
+
+            if (!replacement) {
+                // Genuinely nothing left to swap in - just remove the tile
+                if (cardEl) cardEl.remove();
+                count.textContent = quickPickDisplayed.length;
+                if (quickPickDisplayed.length === 0) {
+                    renderQuickPick();
+                }
+                return;
+            }
+
+            quickPickDisplayed.push(replacement.id);
+            await ensureImdbIds([replacement]);
+            const newCardHtml = buildQuickPickCardHtml(replacement);
+
+            if (cardEl) {
+                cardEl.outerHTML = newCardHtml;
+            } else {
+                // Card wasn't found in the DOM for some reason - append instead of losing the pick
+                grid.insertAdjacentHTML('beforeend', newCardHtml);
+            }
+
+            count.textContent = quickPickDisplayed.length;
         }
 
         // Adds a TMDB Quick Pick suggestion directly to Watched.
@@ -1218,27 +1273,101 @@
             // Remove from the pool so it doesn't show up again this session
             quickPickPool = quickPickPool.filter(m => m.id !== tmdbId);
             delete quickPickLookup[tmdbId];
-            // It's permanently tracked now via movieAlreadyTracked, so it no
-            // longer needs a show-count entry cluttering the seen log
-            delete quickPickSeenLog.counts[tmdbId];
-            saveQuickPickSeenLog(quickPickSeenLog);
 
             saveData();
-            renderAll();
+            // Only update the Watched grid and swap this one Quick Pick tile,
+            // instead of reshuffling the whole Quick Pick section (renderAll would do that).
+            renderWatchedByDecade();
+            await replaceQuickPickTile(tmdbId);
         }
 
-        function startQuickPickRotation() {
-            if (quickPickInterval) {
-                clearInterval(quickPickInterval);
+        // Refresh button: always pulls fresh titles from TMDB rather than reshuffling
+        // whatever happens to already be cached, so you actually see new movies.
+        async function manualRefreshQuickPick() {
+            const grid = document.getElementById('quick-pick-grid');
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div>🎲</div>
+                    <div>Finding critically acclaimed movies...</div>
+                </div>
+            `;
+            // Drop the cached pool entirely and fetch a brand new batch
+            quickPickPool = [];
+            quickPickDisplayed = [];
+            await fetchQuickPickBatch();
+            await renderQuickPick();
+        }
+
+        // Renders the Watched grid grouped by decade (newest first), instead of
+        // the flat list every other category uses. Movies with no year go in
+        // an "Unknown" group at the end.
+        function buildMovieCardHtml(movie, category) {
+            const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+
+            return `
+                <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
+                    <div class="movie-poster">
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}">` : '🎬'}
+                    </div>
+                    <div class="movie-info" onclick="event.stopPropagation();">
+                        <div class="movie-info-title">
+                            <span class="movie-title">${movie.title}</span>
+                            ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
+                        </div>
+                        <div class="movie-info-actions">
+                            ${category === 'wantToWatch' || category === 'recommended' ? 
+                                `<button onclick="requireAuth(() => markAsWatched('${category}', ${movie.id}))" title="Mark as Watched">👁</button>
+                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` : 
+                              category === 'watched' ?
+                                `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
+                                `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
+                            }
+                            <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderWatchedByDecade() {
+            const grid = document.getElementById('watched-grid');
+            const count = document.getElementById('watched-count');
+            const movies = movieData.watched;
+
+            count.textContent = movies.length;
+
+            if (movies.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>📽️</div>
+                        <div>No movies yet. Add some above!</div>
+                    </div>
+                `;
+                return;
             }
-            quickPickInterval = setInterval(renderQuickPick, 30000);
-        }
 
-        // Manual shuffle button: refresh immediately and restart the auto-rotation
-        // timer so the next automatic refresh isn't right on top of this one.
-        function manualRefreshQuickPick() {
-            renderQuickPick();
-            startQuickPickRotation();
+            // Group by decade
+            const groups = {}; // "1990s" -> [movies]
+            movies.forEach(movie => {
+                const yearNum = parseInt(movie.year, 10);
+                const label = !isNaN(yearNum) ? `${Math.floor(yearNum / 10) * 10}s` : 'Unknown';
+                if (!groups[label]) groups[label] = [];
+                groups[label].push(movie);
+            });
+
+            // Sort decade labels newest-first, "Unknown" always last
+            const decadeLabels = Object.keys(groups)
+                .filter(l => l !== 'Unknown')
+                .sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+            if (groups['Unknown']) decadeLabels.push('Unknown');
+
+            grid.innerHTML = decadeLabels.map(label => {
+                // Newest movies first within each decade too
+                const sorted = [...groups[label]].sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0));
+                const header = `<div class="decade-header">${label}<span class="decade-count">${sorted.length}</span></div>`;
+                const cards = sorted.map(movie => buildMovieCardHtml(movie, 'watched')).join('');
+                return header + cards;
+            }).join('');
         }
 
         // Render a specific category
