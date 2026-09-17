@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v20.0.0</title>
+    <title>Gerry's Movies and TV Show Tracker v20.2.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v20.0.0";
+        const APP_VERSION = "v20.2.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1264,8 +1264,7 @@
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${safeTitle}</span>
-                            ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
+                            <span class="movie-title">${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}</span>
                         </div>
                         <div class="movie-info-actions">
                             ${category === 'wantToWatch' || category === 'recommended' ? 
@@ -1747,13 +1746,20 @@
             });
         }
 
-        // Quick Pick is now Claude-reasoned (same mechanism as For You), not
-        // algorithmic - it was repeating stale, already-watched titles because
-        // TMDB's popularity-sorted list is a small, fixed pool that runs dry
-        // fast. This asks Claude for real, varied, quality picks instead,
-        // checking against everything you've tracked, hidden, or recently seen
-        // here, and taking your standing chat preferences into account too.
+        // Quality bar: popularity-sorted discover with a vote floor. This pool is
+        // effectively bottomless (thousands of pages), unlike rating-sorted lists
+        // which are a small, fixed set of famous titles that runs dry fast.
+        const QUICK_PICK_MIN_RATING = 6.5;
+        const QUICK_PICK_MIN_VOTES = 100;
         let quickPickLastError = null; // holds the actual error text so we can show it on screen
+
+        const QUICK_PICK_SOURCES = [
+            {
+                name: 'discover (popular + well-rated)',
+                maxPage: 500,
+                buildUrl: (page) => `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&sort_by=popularity.desc&vote_average.gte=${QUICK_PICK_MIN_RATING}&vote_count.gte=${QUICK_PICK_MIN_VOTES}&page=${page}`
+            }
+        ];
 
         // Recent-history no-repeat: a capped list of the last N tmdbIds shown,
         // stored in localStorage. A title can resurface once it ages out of
@@ -1790,88 +1796,67 @@
             saveQuickPickHistory(quickPickHistory);
         }
 
-        function buildQuickPickSystemPrompt(excludeCount) {
-            const basePrompt = buildMovieChatSystemPrompt();
-            const recentTitles = quickPickHistory.length > 0
-                ? `\n\nAlso avoid these ${quickPickHistory.length} titles shown recently in Quick Pick (by TMDB id, for your reference only - just don't repeat obviously similar recent picks): ${quickPickHistory.slice(-40).join(', ')}`
-                : '';
-            return basePrompt + `\n\nTASK: Generate exactly ${excludeCount} "Quick Pick" recommendations - a small, high-quality, varied batch, not a long list. Really think about what this specific person would love, not just what's popular. Call suggest_movie_card for EACH of the ${excludeCount} titles - no exceptions, no fewer, no more. Do not write any other text in your reply, just the ${excludeCount} tool calls. Make sure none are already in any of the client's lists.` + recentTitles;
+        // Random starting page (1 to ~half of maxPage) so repeated fetches don't
+        // always start from the same spot in this effectively bottomless,
+        // popularity-sorted pool.
+        function randomStartPage(maxPage) {
+            return Math.floor(Math.random() * (maxPage / 2)) + 1;
         }
 
-        // Fetches `count` fresh Claude-reasoned picks and adds them to the pool
-        // (resolved against TMDB for real posters/ids), same resolution
-        // pattern as For You and chat suggestions.
-        async function fetchQuickPickBatch(count) {
+        let quickPickSourcePages = QUICK_PICK_SOURCES.map(s => randomStartPage(s.maxPage));
+
+        async function fetchQuickPickBatch(minUnusedNeeded = QUICK_PICK_COUNT) {
             if (quickPickLoading) return;
             quickPickLoading = true;
             quickPickLastError = null;
-
-            if (!CHAT_PROXY_URL) {
-                quickPickLastError = 'Chat proxy isn\'t configured (CHAT_PROXY_URL is empty).';
-                quickPickLoading = false;
-                return;
-            }
-
+            const MAX_REQUESTS_PER_CALL = 20; // safety cap across all sources combined
+            const hasEnoughUnused = () => quickPickPool.filter(m => !quickPickDisplayed.includes(m.id)).length >= minUnusedNeeded;
             try {
-                const response = await fetch(CHAT_PROXY_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        system: buildQuickPickSystemPrompt(count),
-                        messages: [{ role: 'user', content: `Generate ${count} Quick Pick recommendations now.` }],
-                        useTools: true
-                    })
-                });
+                let requestsMade = 0;
+                let sourceIndex = 0;
+                let lastGoodResponse = false;
+                while (!hasEnoughUnused() && requestsMade < MAX_REQUESTS_PER_CALL) {
+                    const source = QUICK_PICK_SOURCES[sourceIndex % QUICK_PICK_SOURCES.length];
+                    const srcIdx = sourceIndex % QUICK_PICK_SOURCES.length;
+                    const page = quickPickSourcePages[srcIdx];
 
-                const data = await response.json();
-                if (!response.ok) {
-                    quickPickLastError = data.error || `HTTP ${response.status}`;
-                    quickPickLoading = false;
-                    return;
-                }
+                    const res = await fetch(source.buildUrl(page));
+                    requestsMade++;
 
-                const contentBlocks = Array.isArray(data.content) ? data.content : [];
-                const suggestions = contentBlocks
-                    .filter(b => b.type === 'tool_use' && b.name === 'suggest_movie_card')
-                    .map(b => b.input);
-
-                if (suggestions.length === 0) {
-                    quickPickLastError = 'Claude didn\'t return any picks this time. Try refreshing again.';
-                    quickPickLoading = false;
-                    return;
-                }
-
-                const resolved = await Promise.all(suggestions.map(async (s) => {
-                    try {
-                        const yearParam = s.year ? `&year=${encodeURIComponent(s.year)}` : '';
-                        const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(s.title)}${yearParam}`);
-                        const searchData = await res.json();
-                        const match = searchData.results && searchData.results[0];
-                        if (!match) return null;
-
-                        let imdbId = null;
-                        try {
-                            const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${match.id}/external_ids?api_key=${TMDB_API_KEY}`);
-                            const details = await detailsRes.json();
-                            imdbId = details.imdb_id || null;
-                        } catch (e) { /* ignore */ }
-
-                        return { ...match, imdbId };
-                    } catch (e) {
-                        return null;
+                    if (!res.ok) {
+                        let bodyText = '';
+                        try { bodyText = await res.text(); } catch (e) { /* ignore */ }
+                        console.error(`Quick Pick [${source.name}] failed with status`, res.status, 'on page', page, 'body:', bodyText);
+                        if (!lastGoodResponse) {
+                            // Only surface an error on screen if we haven't had any successful response at all this round
+                            quickPickLastError = `HTTP ${res.status} from ${source.name}: ${bodyText || 'no response body'}`;
+                        }
+                        quickPickSourcePages[srcIdx] = randomStartPage(source.maxPage); // jump somewhere new, move to next source
+                        sourceIndex++;
+                        continue;
                     }
-                }));
 
-                const fresh = resolved.filter(m =>
-                    m !== null &&
-                    !movieAlreadyTracked(m.id, m.title, m.release_date ? m.release_date.split('-')[0] : '') &&
-                    !quickPickPool.some(p => p.id === m.id) &&
-                    !quickPickHidden.includes(m.id) &&
-                    !quickPickHistory.includes(m.id)
-                );
+                    lastGoodResponse = true;
+                    const data = await res.json();
+                    // Wrap to a fresh random page instead of always looping back to page 1
+                    quickPickSourcePages[srcIdx] = page >= source.maxPage ? randomStartPage(source.maxPage) : page + 1;
+                    sourceIndex++;
 
-                quickPickPool.push(...fresh);
-
+                    if (data.results) {
+                        const totalRaw = data.results.length;
+                        const fresh = data.results.filter(m =>
+                            !movieAlreadyTracked(m.id, m.title, m.release_date ? m.release_date.split('-')[0] : '') &&
+                            !quickPickPool.some(p => p.id === m.id) &&
+                            !quickPickHidden.includes(m.id) &&
+                            !quickPickHistory.includes(m.id)
+                        );
+                        console.log(`Quick Pick [${source.name}] page ${page}: ${totalRaw} raw, ${fresh.length} survive filters. Pool now: ${quickPickPool.length + fresh.length}`);
+                        quickPickPool.push(...fresh);
+                    }
+                }
+                if (quickPickPool.length < QUICK_PICK_COUNT) {
+                    console.warn(`Quick Pick: only found ${quickPickPool.length} eligible movies after ${requestsMade} requests across ${QUICK_PICK_SOURCES.length} sources.`);
+                }
             } catch (error) {
                 console.error('Quick Pick fetch error:', error);
                 quickPickLastError = `${error.name}: ${error.message}`;
@@ -1879,7 +1864,7 @@
             quickPickLoading = false;
         }
 
-        const QUICK_PICK_COUNT = 10; // quality over quantity - a small, real batch
+        const QUICK_PICK_COUNT = 25; // how many titles to show per rotation
 
         // Builds the HTML for one Quick Pick card. Shared by the full render
         // and the single-tile replacement so both stay visually identical.
@@ -1900,8 +1885,7 @@
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${safeTitle}</span>
-                            ${year ? `<span class="movie-year">(${year})</span>` : ''}
+                            <span class="movie-title">${safeTitle}${year ? ` <span class="movie-year">(${year})</span>` : ''}</span>
                         </div>
                         <div class="movie-info-actions">
                             <button onclick="requireAuth(() => addQuickPickToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
@@ -1990,7 +1974,7 @@
                         <div>Finding great movies...</div>
                     </div>
                 `;
-                await fetchQuickPickBatch(QUICK_PICK_COUNT - quickPickPool.length);
+                await fetchQuickPickBatch();
             }
 
             // Defensive: drop anything from the pool that's since entered recent
@@ -2039,7 +2023,7 @@
 
             // If every cached pool entry is already on screen (or the pool is thin),
             // fetch a fresh batch rather than silently failing to find a replacement.
-            // Only need 1 unused candidate here, not a full new batch of 10.
+            // Only need 1 unused candidate here, not a full new batch of 25.
             if (!replacement) {
                 await fetchQuickPickBatch(1);
                 replacement = quickPickPool.find(m => !quickPickDisplayed.includes(m.id));
@@ -2225,7 +2209,15 @@
                     }
                 }));
 
-                const movies = resolved.filter(m => m !== null);
+                // Hard filter, not just a prompt instruction: Claude was told not
+                // to repeat tracked titles in the prompt text, but nothing
+                // actually enforced that in code, so already-watched movies were
+                // slipping through whenever the model missed one. This mirrors
+                // the same check Quick Pick has always had.
+                const movies = resolved.filter(m =>
+                    m !== null &&
+                    !movieAlreadyTracked(m.id, m.title, m.release_date ? m.release_date.split('-')[0] : '')
+                );
                 return { movies };
 
             } catch (error) {
@@ -2291,8 +2283,7 @@
                         </div>
                         <div class="movie-info" onclick="event.stopPropagation();">
                             <div class="movie-info-title">
-                                <span class="movie-title">${safeTitle}</span>
-                                ${year ? `<span class="movie-year">(${year})</span>` : ''}
+                                <span class="movie-title">${safeTitle}${year ? ` <span class="movie-year">(${year})</span>` : ''}</span>
                             </div>
                             <div class="movie-info-actions">
                                 <button onclick="requireAuth(() => addForYouToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
@@ -2373,21 +2364,20 @@
             }
         }
 
-        // Refresh button: always asks Claude for a brand new batch rather than
-        // reshuffling whatever happens to already be cached, so you actually
-        // see new, thought-about picks each time.
+        // Refresh button: always pulls fresh titles from TMDB rather than reshuffling
+        // whatever happens to already be cached, so you actually see new movies.
         async function manualRefreshQuickPick() {
             const grid = document.getElementById('quick-pick-grid');
             grid.innerHTML = `
                 <div class="empty-state">
                     <div>🎲</div>
-                    <div>Asking Claude for fresh picks...</div>
+                    <div>Finding great movies...</div>
                 </div>
             `;
             // Drop the cached pool entirely and fetch a brand new batch
             quickPickPool = [];
             quickPickDisplayed = [];
-            await fetchQuickPickBatch(QUICK_PICK_COUNT);
+            await fetchQuickPickBatch();
             await renderQuickPick();
         }
 
@@ -2427,8 +2417,7 @@
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${safeTitle}</span>
-                            ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
+                            <span class="movie-title">${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}</span>
                         </div>
                         <div class="movie-info-actions">
                             ${category === 'wantToWatch' || category === 'recommended' ? 
