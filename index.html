@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v20.2.0</title>
+    <title>Gerry's Movies and TV Show Tracker v21.0.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v20.2.0";
+        const APP_VERSION = "v21.0.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3076,6 +3076,7 @@
 
         let movieChatHistory = []; // [{role: 'user'|'assistant', content: '...'}]
         let movieChatPreferences = ''; // free-text notes Claude has picked up about your taste
+        let movieChatFeedback = []; // [{title, year, outcome, at}] - real reactions to past suggestions
         let movieChatLoaded = false;
 
         async function loadMovieChatState() {
@@ -3086,6 +3087,7 @@
                     const data = doc.data();
                     movieChatHistory = data.history || [];
                     movieChatPreferences = data.preferences || '';
+                    movieChatFeedback = data.feedback || [];
                 }
             } catch (error) {
                 console.error('Chat state load error:', error);
@@ -3098,11 +3100,23 @@
                 await db.collection('movieData').doc('gerrysChat').set({
                     history: movieChatHistory.slice(-40), // keep the doc bounded
                     preferences: movieChatPreferences,
+                    feedback: movieChatFeedback.slice(-100), // bounded, most recent reactions matter most
                     lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
                 });
             } catch (error) {
                 console.error('Chat state save error:', error);
             }
+        }
+
+        // Records a real reaction to a suggested title, so future prompts can
+        // tell Claude what actually landed vs what didn't - this is the
+        // feedback loop that lets it learn from your choices, not just guess.
+        function recordMovieChatFeedback(title, year, outcome) {
+            movieChatFeedback.push({ title, year, outcome, at: Date.now() });
+            if (movieChatFeedback.length > 100) {
+                movieChatFeedback = movieChatFeedback.slice(-100);
+            }
+            saveMovieChatState();
         }
 
         // Clears the conversation history. Standing preferences (things like
@@ -3158,8 +3172,14 @@ ${titleYearList(comingSoon)}
 
 Client's "One Day" list (interested but not now, or previously passed on), ${oneDay.length} total - avoid re-suggesting unless the client asks about it directly:
 ${titleYearList(oneDay)}
-
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When you recommend a specific film or show, check it isn't already in one of the lists above, then ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
+${(() => {
+    if (movieChatFeedback.length === 0) return '';
+    const liked = movieChatFeedback.filter(f => f.outcome === 'wantToWatch' || f.outcome === 'watched');
+    const disliked = movieChatFeedback.filter(f => f.outcome === 'dismissed' || f.outcome === 'notMyCupOfTea');
+    const fmt = (list) => list.slice(-25).map(f => `${f.title} (${f.year || '?'})`).join(', ') || '(none)';
+    return `\nReal reactions to your past suggestions in this chat - use this to actually learn what lands, not just what you'd generically recommend:\nLiked/acted on positively (added to Want to Watch or Watched): ${fmt(liked)}\nRejected (dismissed, or sent to One Day): ${fmt(disliked)}\n`;
+})()}
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific film or show, check it isn't already in one of the lists above, then ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
         }
 
         function openMovieChat() {
@@ -3236,6 +3256,7 @@ When the client tells you something about their taste (a genre they dislike, a d
                 const year = match.release_date ? match.release_date.split('-')[0] : (suggestion.year || '');
                 const poster = match.poster_path ? `${TMDB_IMAGE_BASE}${match.poster_path}` : null;
                 const safeTitle = escapeHtml(match.title);
+                const imdbLink = imdbId ? `https://www.imdb.com/title/${imdbId}/` : null;
 
                 movieChatSuggestions[seq] = {
                     title: match.title,
@@ -3247,16 +3268,19 @@ When the client tells you something about their taste (a genre they dislike, a d
 
                 cardEl.innerHTML = `
                     <div style="display: flex; gap: 12px; padding: 6px;">
-                        <div style="width: 60px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;">
+                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 60px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;" title="${imdbLink ? 'Open on IMDb' : ''}">
                             ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
-                            <div style="color: rgba(245,245,247,0.5); font-size: 0.8em; margin-bottom: 8px;">${year || ''}</div>
+                            <div style="color: rgba(245,245,247,0.5); font-size: 0.8em; margin-bottom: 8px;">
+                                ${year || ''}${imdbLink ? ` · <a href="${imdbLink}" target="_blank" style="color: #b57edc;">IMDb ↗</a>` : ''}
+                            </div>
                             <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 6px; flex-wrap: wrap;">
                                 <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="padding: 6px 10px; font-size: 0.75em;">+ Want to Watch</button>
                                 <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="padding: 6px 10px; font-size: 0.75em;">🤞 One Day</button>
                                 <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="padding: 6px 10px; font-size: 0.75em;">✓ Watched</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="padding: 6px 10px; font-size: 0.75em;" title="Not interested - Claude will learn from this">✕</button>
                             </div>
                         </div>
                     </div>
@@ -3269,32 +3293,44 @@ When the client tells you something about their taste (a genre they dislike, a d
             }
         }
 
-        // Adds a suggested movie to the given category, then swaps the card's
-        // buttons for a confirmation so it's clear the tap registered.
-        function actOnMovieSuggestion(seq, category) {
+        // Acts on a suggested movie: adds it to a real list (or just records a
+        // dismissal), swaps the card's buttons for a confirmation, and records
+        // the outcome as feedback so future prompts can tell Claude what
+        // actually landed vs what got rejected.
+        function actOnMovieSuggestion(seq, outcome) {
             const suggestion = movieChatSuggestions[seq];
             if (!suggestion) return;
 
-            const movie = {
-                id: Date.now(),
-                title: suggestion.title,
-                year: suggestion.year,
-                poster: suggestion.poster,
-                imdbId: suggestion.imdbId || '',
-                tmdbId: suggestion.tmdbId,
-                notes: ''
-            };
+            if (outcome !== 'dismissed') {
+                const movie = {
+                    id: Date.now(),
+                    title: suggestion.title,
+                    year: suggestion.year,
+                    poster: suggestion.poster,
+                    imdbId: suggestion.imdbId || '',
+                    tmdbId: suggestion.tmdbId,
+                    notes: ''
+                };
 
-            movieData[category].push(movie);
-            saveData();
-            renderAll();
+                movieData[outcome].push(movie);
+                saveData();
+                renderAll();
+            }
+
+            recordMovieChatFeedback(suggestion.title, suggestion.year, outcome);
 
             const cardEl = document.getElementById(`chat-suggestion-${seq}`);
             if (cardEl) {
-                const labels = { wantToWatch: 'Added to Want to Watch', notMyCupOfTea: 'Added to One Day', watched: 'Marked as Watched' };
+                const labels = {
+                    wantToWatch: '✓ Added to Want to Watch',
+                    notMyCupOfTea: '✓ Added to One Day',
+                    watched: '✓ Marked as Watched',
+                    dismissed: '✕ Dismissed - noted for next time'
+                };
                 const buttonsEl = document.getElementById(`chat-suggestion-actions-${seq}`);
                 if (buttonsEl) {
-                    buttonsEl.innerHTML = `<span style="color: #4CAF50; font-size: 0.8em;">✓ ${labels[category]}</span>`;
+                    const color = outcome === 'dismissed' ? 'rgba(245,245,247,0.4)' : '#4CAF50';
+                    buttonsEl.innerHTML = `<span style="color: ${color}; font-size: 0.8em;">${labels[outcome]}</span>`;
                 }
             }
         }
