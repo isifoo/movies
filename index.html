@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v18.0.0</title>
+    <title>Gerry's Movies and TV Show Tracker v19.1.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -431,6 +431,7 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            text-overflow: ellipsis;
             color: #f5f5f7;
             letter-spacing: -0.01em;
         }
@@ -652,6 +653,15 @@
         <div id="main-view">
             <div class="category">
                 <div class="category-header">
+                    <h2>✨ For You <span class="count" id="for-you-count">0</span></h2>
+                    <button onclick="requireAuth(() => refreshForYou())" title="Get fresh picks (uses your Claude API)" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
+                </div>
+                <div id="for-you-status" style="text-align: center; color: rgba(245,245,247,0.4); font-size: 0.8em; margin-bottom: 12px; display: none;"></div>
+                <div class="movie-grid" id="for-you-grid"></div>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
                     <h2>🎯 Want to Watch <span class="count" id="want-count">0</span></h2>
                 </div>
                 <div class="movie-grid" id="want-to-watch-grid"></div>
@@ -676,15 +686,6 @@
                     <h2>📺 TV Shows <span class="count" id="recommended-count">0</span></h2>
                 </div>
                 <div class="movie-grid" id="recommended-grid"></div>
-            </div>
-
-            <div class="category">
-                <div class="category-header">
-                    <h2>✨ For You <span class="count" id="for-you-count">0</span></h2>
-                    <button onclick="requireAuth(() => refreshForYou())" title="Get fresh picks (uses your Claude API)" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
-                </div>
-                <div id="for-you-status" style="text-align: center; color: rgba(245,245,247,0.4); font-size: 0.8em; margin-bottom: 12px; display: none;"></div>
-                <div class="movie-grid" id="for-you-grid"></div>
             </div>
 
             <div class="category">
@@ -899,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v18.0.0";
+        const APP_VERSION = "v19.1.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -998,6 +999,22 @@
             }
         });
         
+        // Escapes text for safe use inside HTML (both element content and
+        // attribute values like alt="..."). Movie titles can contain quotes,
+        // ampersands, or angle brackets (e.g. a title with "&" or a quoted
+        // word) that would otherwise break the surrounding HTML - a title
+        // with a " could prematurely close an alt="..." attribute and corrupt
+        // everything rendered after it on that card.
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // TMDB API Configuration
         const TMDB_API_KEY = "de6f7a5dd9872278eebca4f5c9536ac8";
         const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
@@ -1238,15 +1255,16 @@
         // with no year go in an "Unknown" group at the end.
         function buildMovieCardHtml(movie, category) {
             const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+            const safeTitle = escapeHtml(movie.title);
 
             return `
                 <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-poster">
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}">` : '🎬'}
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${movie.title}</span>
+                            <span class="movie-title">${safeTitle}</span>
                             ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
                         </div>
                         <div class="movie-info-actions">
@@ -1855,6 +1873,7 @@
             const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
             const year = movie.release_date ? movie.release_date.split('-')[0] : '';
             const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+            const safeTitle = escapeHtml(movie.title);
 
             // Stash full data on a lookup map instead of inlining it into the
             // onclick attribute (raw quotes/URLs in attributes break the HTML).
@@ -1863,14 +1882,15 @@
             return `
                 <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-poster">
-                        ${poster ? `<img src="${poster}" alt="${movie.title}">` : '🎬'}
+                        ${poster ? `<img src="${poster}" alt="${safeTitle}">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${movie.title}</span>
+                            <span class="movie-title">${safeTitle}</span>
                             ${year ? `<span class="movie-year">(${year})</span>` : ''}
                         </div>
                         <div class="movie-info-actions">
+                            <button onclick="requireAuth(() => addQuickPickToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
                             <button class="quick-pick-watch" onclick="requireAuth(() => addQuickPickToWatched(${movie.id}))" title="Mark as Watched">👁</button>
                             <button onclick="requireAuth(() => hideQuickPickForever(${movie.id}))" title="Don't show again">✕</button>
                         </div>
@@ -2066,6 +2086,32 @@
             await replaceQuickPickTile(tmdbId);
         }
 
+        async function addQuickPickToWantToWatch(tmdbId) {
+            const pick = quickPickLookup[tmdbId];
+            if (!pick) {
+                console.error('Quick Pick lookup miss for', tmdbId);
+                return;
+            }
+
+            const movie = {
+                id: Date.now(),
+                title: pick.title,
+                year: pick.year,
+                poster: pick.poster,
+                notes: '',
+                imdbId: pick.imdbId || '',
+                tmdbId: tmdbId
+            };
+
+            movieData.wantToWatch.push(movie);
+            quickPickPool = quickPickPool.filter(m => m.id !== tmdbId);
+            delete quickPickLookup[tmdbId];
+
+            saveData();
+            renderAll(); // Want to Watch's grid lives outside Quick Pick's section
+            await replaceQuickPickTile(tmdbId);
+        }
+
         // ===== For You =====
         // Weekly-ish picks reasoned by Claude (via the same chat proxy), not an
         // algorithm - it looks at your full lists and standing preferences,
@@ -2220,20 +2266,22 @@
                 const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
                 const year = movie.release_date ? movie.release_date.split('-')[0] : '';
                 const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+                const safeTitle = escapeHtml(movie.title);
 
                 forYouLookup[movie.id] = { title: movie.title, year, poster, imdbId: movie.imdbId, tmdbId: movie.id };
 
                 return `
                     <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                         <div class="movie-poster">
-                            ${poster ? `<img src="${poster}" alt="${movie.title}">` : '🎬'}
+                            ${poster ? `<img src="${poster}" alt="${safeTitle}">` : '🎬'}
                         </div>
                         <div class="movie-info" onclick="event.stopPropagation();">
                             <div class="movie-info-title">
-                                <span class="movie-title">${movie.title}</span>
+                                <span class="movie-title">${safeTitle}</span>
                                 ${year ? `<span class="movie-year">(${year})</span>` : ''}
                             </div>
                             <div class="movie-info-actions">
+                                <button onclick="requireAuth(() => addForYouToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
                                 <button onclick="requireAuth(() => addForYouToWatched(${movie.id}))" title="Mark as Watched">👁</button>
                                 <button onclick="requireAuth(() => hideForYouCard(${movie.id}))" title="Don't show again">✕</button>
                             </div>
@@ -2241,6 +2289,28 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        function addForYouToWantToWatch(tmdbId) {
+            const pick = forYouLookup[tmdbId];
+            if (!pick) return;
+
+            movieData.wantToWatch.push({
+                id: Date.now(),
+                title: pick.title,
+                year: pick.year,
+                poster: pick.poster,
+                imdbId: pick.imdbId || '',
+                tmdbId: tmdbId,
+                notes: ''
+            });
+
+            saveData();
+            renderAll(); // Want to Watch's grid lives outside For You's section
+            forYouPool = forYouPool.filter(m => m.id !== tmdbId);
+            delete forYouLookup[tmdbId];
+            document.getElementById('for-you-count').textContent = forYouPool.length;
+            document.querySelector(`#for-you-grid [data-tmdb-id="${tmdbId}"]`)?.remove();
         }
 
         function addForYouToWatched(tmdbId) {
@@ -2333,15 +2403,16 @@
 
             grid.innerHTML = movies.map(movie => {
                 const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+                const safeTitle = escapeHtml(movie.title);
                 
                 return `
                 <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-poster">
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}">` : '🎬'}
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
-                            <span class="movie-title">${movie.title}</span>
+                            <span class="movie-title">${safeTitle}</span>
                             ${movie.year ? `<span class="movie-year">(${movie.year})</span>` : ''}
                         </div>
                         <div class="movie-info-actions">
@@ -2434,7 +2505,7 @@
                                 ${!posterUrl ? '🎬' : ''}
                             </div>
                             <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${movie.title}</div>
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${escapeHtml(movie.title)}</div>
                                 <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${year}</div>
                             </div>
                         </div>
@@ -2579,7 +2650,7 @@
             if (movie.Poster && movie.Poster !== 'N/A') {
                 document.getElementById('movie-poster').value = movie.Poster;
                 document.getElementById('movie-poster-preview').innerHTML = `
-                    <img src="${movie.Poster}" alt="${movie.Title}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                    <img src="${movie.Poster}" alt="${escapeHtml(movie.Title)}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
                 `;
             }
 
@@ -2635,7 +2706,7 @@
                                 ${!posterUrl ? '📺' : ''}
                             </div>
                             <div style="padding: 8px; background: rgba(0,0,0,0.3);">
-                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${show.name}</div>
+                                <div style="font-weight: 600; font-size: 0.85em; margin-bottom: 2px;">${escapeHtml(show.name)}</div>
                                 <div style="font-size: 0.75em; color: rgba(255,255,255,0.7);">${year}</div>
                             </div>
                         </div>
@@ -2771,7 +2842,7 @@
             if (show.Poster && show.Poster !== 'N/A') {
                 document.getElementById('tv-poster').value = show.Poster;
                 document.getElementById('tv-poster-preview').innerHTML = `
-                    <img src="${show.Poster}" alt="${show.Title}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                    <img src="${show.Poster}" alt="${escapeHtml(show.Title)}" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
                 `;
             }
 
@@ -3130,12 +3201,13 @@ When the client tells you something about their taste (a genre they dislike, a d
         async function addMovieSuggestionCard(suggestion) {
             const messagesEl = document.getElementById('movie-chat-messages');
             const seq = movieChatSuggestionSeq++;
+            const safeSuggestedTitle = escapeHtml(suggestion.title);
 
             const cardEl = document.createElement('div');
             cardEl.className = 'chat-message assistant';
             cardEl.style.padding = '10px';
             cardEl.id = `chat-suggestion-${seq}`;
-            cardEl.innerHTML = `<div style="text-align:center; font-size: 0.85em; color: rgba(245,245,247,0.5); padding: 10px;">Looking up "${suggestion.title}"...</div>`;
+            cardEl.innerHTML = `<div style="text-align:center; font-size: 0.85em; color: rgba(245,245,247,0.5); padding: 10px;">Looking up "${safeSuggestedTitle}"...</div>`;
             messagesEl.appendChild(cardEl);
             scrollMovieChatToBottom();
 
@@ -3146,7 +3218,7 @@ When the client tells you something about their taste (a genre they dislike, a d
                 const match = data.results && data.results[0];
 
                 if (!match) {
-                    cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't find "${suggestion.title}" on TMDB.</div>`;
+                    cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't find "${safeSuggestedTitle}" on TMDB.</div>`;
                     return;
                 }
 
@@ -3159,6 +3231,7 @@ When the client tells you something about their taste (a genre they dislike, a d
 
                 const year = match.release_date ? match.release_date.split('-')[0] : (suggestion.year || '');
                 const poster = match.poster_path ? `${TMDB_IMAGE_BASE}${match.poster_path}` : null;
+                const safeTitle = escapeHtml(match.title);
 
                 movieChatSuggestions[seq] = {
                     title: match.title,
@@ -3171,10 +3244,10 @@ When the client tells you something about their taste (a genre they dislike, a d
                 cardEl.innerHTML = `
                     <div style="display: flex; gap: 12px; padding: 6px;">
                         <div style="width: 60px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;">
-                            ${poster ? `<img src="${poster}" alt="${match.title}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
+                            ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
                         <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${match.title}</div>
+                            <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
                             <div style="color: rgba(245,245,247,0.5); font-size: 0.8em; margin-bottom: 8px;">${year || ''}</div>
                             <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 6px; flex-wrap: wrap;">
                                 <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="padding: 6px 10px; font-size: 0.75em;">+ Want to Watch</button>
@@ -3188,7 +3261,7 @@ When the client tells you something about their taste (a genre they dislike, a d
 
             } catch (error) {
                 console.error('Movie suggestion lookup failed:', error);
-                cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't look up "${suggestion.title}".</div>`;
+                cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't look up "${safeSuggestedTitle}".</div>`;
             }
         }
 
@@ -3272,12 +3345,17 @@ When the client tells you something about their taste (a genre they dislike, a d
                 }
 
                 // Claude's reply can mix plain text blocks with tool_use blocks
-                // (one per suggested movie), in any order - walk the whole array.
+                // (one per suggested movie, or a preference to remember), in any
+                // order - walk the whole array.
                 const contentBlocks = Array.isArray(data.content) ? data.content : [];
                 const textParts = contentBlocks.filter(b => b.type === 'text').map(b => b.text);
                 const suggestedMovies = contentBlocks
                     .filter(b => b.type === 'tool_use' && b.name === 'suggest_movie_card')
                     .map(b => b.input);
+                const newPreferences = contentBlocks
+                    .filter(b => b.type === 'tool_use' && b.name === 'save_preference')
+                    .map(b => b.input && b.input.preference)
+                    .filter(Boolean);
 
                 const replyText = textParts.join('\n\n').trim() || (suggestedMovies.length > 0 ? '' : 'Sorry, I didn\'t get a usable reply.');
 
@@ -3291,6 +3369,16 @@ When the client tells you something about their taste (a genre they dislike, a d
 
                 for (const suggestion of suggestedMovies) {
                     await addMovieSuggestionCard(suggestion);
+                }
+
+                if (newPreferences.length > 0) {
+                    newPreferences.forEach(p => {
+                        // Avoid piling up exact duplicates if Claude mentions the same thing again
+                        if (!movieChatPreferences.includes(p)) {
+                            movieChatPreferences = movieChatPreferences ? `${movieChatPreferences}\n- ${p}` : `- ${p}`;
+                        }
+                    });
+                    newPreferences.forEach(p => addMovieChatMessage('system-note', `🧠 Remembered: ${p}`));
                 }
 
                 await saveMovieChatState();
