@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v16.1.0</title>
+    <title>Gerry's Movies and TV Show Tracker v17.0.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -887,7 +887,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v16.1.0";
+        const APP_VERSION = "v17.0.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -2812,7 +2812,7 @@ ${movieChatPreferences || '(none recorded yet)'}
 Client's full watched list (title, year, their rating out of 10), ${watched.length} total:
 ${summary}
 
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When they ask for recommendations, suggest real, specific films or shows (old or new) with a one-sentence reason each.`;
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When you recommend a specific film or show, ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
         }
 
         function openMovieChat() {
@@ -2830,13 +2830,124 @@ When the client tells you something about their taste (a genre they dislike, a d
             document.getElementById('movie-chat-overlay').style.display = 'none';
         }
 
+        function scrollMovieChatToBottom() {
+            const messagesEl = document.getElementById('movie-chat-messages');
+            // Wait a frame so the browser has finished laying out the new
+            // message (wrapped text, etc.) before measuring scrollHeight -
+            // reading it immediately after appendChild can be stale.
+            requestAnimationFrame(() => {
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            });
+        }
+
         function addMovieChatMessage(role, content) {
             const messagesEl = document.getElementById('movie-chat-messages');
             const div = document.createElement('div');
             div.className = `chat-message ${role}`;
             div.textContent = content;
             messagesEl.appendChild(div);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
+            scrollMovieChatToBottom();
+        }
+
+        let movieChatSuggestionSeq = 0;
+        const movieChatSuggestions = {}; // seq -> resolved TMDB movie data, for the button handlers
+
+        // Looks up a title Claude suggested via the suggest_movie_card tool,
+        // fetches its poster/IMDb id from TMDB, and renders an actionable card
+        // in the chat with buttons that do the real work of adding it.
+        async function addMovieSuggestionCard(suggestion) {
+            const messagesEl = document.getElementById('movie-chat-messages');
+            const seq = movieChatSuggestionSeq++;
+
+            const cardEl = document.createElement('div');
+            cardEl.className = 'chat-message assistant';
+            cardEl.style.padding = '10px';
+            cardEl.id = `chat-suggestion-${seq}`;
+            cardEl.innerHTML = `<div style="text-align:center; font-size: 0.85em; color: rgba(245,245,247,0.5); padding: 10px;">Looking up "${suggestion.title}"...</div>`;
+            messagesEl.appendChild(cardEl);
+            scrollMovieChatToBottom();
+
+            try {
+                const yearParam = suggestion.year ? `&year=${encodeURIComponent(suggestion.year)}` : '';
+                const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(suggestion.title)}${yearParam}`);
+                const data = await res.json();
+                const match = data.results && data.results[0];
+
+                if (!match) {
+                    cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't find "${suggestion.title}" on TMDB.</div>`;
+                    return;
+                }
+
+                let imdbId = null;
+                try {
+                    const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${match.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                    const details = await detailsRes.json();
+                    imdbId = details.imdb_id || null;
+                } catch (e) { /* ignore, still usable without imdbId */ }
+
+                const year = match.release_date ? match.release_date.split('-')[0] : (suggestion.year || '');
+                const poster = match.poster_path ? `${TMDB_IMAGE_BASE}${match.poster_path}` : null;
+
+                movieChatSuggestions[seq] = {
+                    title: match.title,
+                    year: year,
+                    poster: poster,
+                    imdbId: imdbId,
+                    tmdbId: match.id
+                };
+
+                cardEl.innerHTML = `
+                    <div style="display: flex; gap: 12px; padding: 6px;">
+                        <div style="width: 60px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;">
+                            ${poster ? `<img src="${poster}" alt="${match.title}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${match.title}</div>
+                            <div style="color: rgba(245,245,247,0.5); font-size: 0.8em; margin-bottom: 8px;">${year || ''}</div>
+                            <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="padding: 6px 10px; font-size: 0.75em;">+ Want to Watch</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="padding: 6px 10px; font-size: 0.75em;">🤞 One Day</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="padding: 6px 10px; font-size: 0.75em;">✓ Watched</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                scrollMovieChatToBottom();
+
+            } catch (error) {
+                console.error('Movie suggestion lookup failed:', error);
+                cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't look up "${suggestion.title}".</div>`;
+            }
+        }
+
+        // Adds a suggested movie to the given category, then swaps the card's
+        // buttons for a confirmation so it's clear the tap registered.
+        function actOnMovieSuggestion(seq, category) {
+            const suggestion = movieChatSuggestions[seq];
+            if (!suggestion) return;
+
+            const movie = {
+                id: Date.now(),
+                title: suggestion.title,
+                year: suggestion.year,
+                poster: suggestion.poster,
+                imdbId: suggestion.imdbId || '',
+                tmdbId: suggestion.tmdbId,
+                notes: ''
+            };
+
+            movieData[category].push(movie);
+            saveData();
+            renderAll();
+
+            const cardEl = document.getElementById(`chat-suggestion-${seq}`);
+            if (cardEl) {
+                const labels = { wantToWatch: 'Added to Want to Watch', notMyCupOfTea: 'Added to One Day', watched: 'Marked as Watched' };
+                const buttonsEl = document.getElementById(`chat-suggestion-actions-${seq}`);
+                if (buttonsEl) {
+                    buttonsEl.innerHTML = `<span style="color: #4CAF50; font-size: 0.8em;">✓ ${labels[category]}</span>`;
+                }
+            }
         }
 
         function renderMovieChatMessages() {
@@ -2868,6 +2979,7 @@ When the client tells you something about their taste (a genre they dislike, a d
             thinkingEl.id = 'movie-chat-thinking';
             thinkingEl.textContent = '...';
             document.getElementById('movie-chat-messages').appendChild(thinkingEl);
+            scrollMovieChatToBottom();
 
             try {
                 const response = await fetch(CHAT_PROXY_URL, {
@@ -2875,7 +2987,8 @@ When the client tells you something about their taste (a genre they dislike, a d
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         system: buildMovieChatSystemPrompt(),
-                        messages: movieChatHistory.map(m => ({ role: m.role, content: m.content }))
+                        messages: movieChatHistory.map(m => ({ role: m.role, content: m.content })),
+                        useTools: true
                     })
                 });
 
@@ -2886,12 +2999,28 @@ When the client tells you something about their taste (a genre they dislike, a d
                     throw new Error(data.error || `HTTP ${response.status}`);
                 }
 
-                const replyText = data.content && data.content[0] && data.content[0].text
-                    ? data.content[0].text
-                    : 'Sorry, I didn\'t get a usable reply.';
+                // Claude's reply can mix plain text blocks with tool_use blocks
+                // (one per suggested movie), in any order - walk the whole array.
+                const contentBlocks = Array.isArray(data.content) ? data.content : [];
+                const textParts = contentBlocks.filter(b => b.type === 'text').map(b => b.text);
+                const suggestedMovies = contentBlocks
+                    .filter(b => b.type === 'tool_use' && b.name === 'suggest_movie_card')
+                    .map(b => b.input);
 
-                movieChatHistory.push({ role: 'assistant', content: replyText });
-                addMovieChatMessage('assistant', replyText);
+                const replyText = textParts.join('\n\n').trim() || (suggestedMovies.length > 0 ? '' : 'Sorry, I didn\'t get a usable reply.');
+
+                // Store only the text portion in history - Claude doesn't need to
+                // see its own past tool calls replayed for this simplified,
+                // one-way suggestion flow (it's not reacting to the outcome).
+                movieChatHistory.push({ role: 'assistant', content: replyText || '(suggested some titles)' });
+                if (replyText) {
+                    addMovieChatMessage('assistant', replyText);
+                }
+
+                for (const suggestion of suggestedMovies) {
+                    await addMovieSuggestionCard(suggestion);
+                }
+
                 await saveMovieChatState();
 
             } catch (error) {
