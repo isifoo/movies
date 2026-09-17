@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v16.0.0</title>
+    <title>Gerry's Movies and TV Show Tracker v16.1.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -887,7 +887,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v16.0.0";
+        const APP_VERSION = "v16.1.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -2796,10 +2796,10 @@
 
         function buildMovieChatSystemPrompt() {
             const watched = movieData.watched || [];
-            // Keep this bounded - full title/year/rating list, sorted best-first,
-            // capped so the prompt doesn't grow without limit as the list grows.
+            // Full list, no cap - rebuilt fresh every message (see sendMovieChatMessage)
+            // so anything newly marked watched is reflected in the very next message.
             const sorted = [...watched].sort((a, b) => (b.clusterRating || 0) - (a.clusterRating || 0));
-            const summary = sorted.slice(0, 300).map(m => {
+            const summary = sorted.map(m => {
                 const r = m.clusterRating !== undefined ? m.clusterRating.toFixed(1) : '?';
                 return `${m.title} (${m.year || '?'}) - rated ${r}/10`;
             }).join('\n');
@@ -2809,7 +2809,7 @@
 Standing preferences this client has told you (always respect these):
 ${movieChatPreferences || '(none recorded yet)'}
 
-Client's watched list (title, year, their rating out of 10), ${watched.length} total, showing top ${Math.min(300, watched.length)} by rating:
+Client's full watched list (title, year, their rating out of 10), ${watched.length} total:
 ${summary}
 
 When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When they ask for recommendations, suggest real, specific films or shows (old or new) with a one-sentence reason each.`;
