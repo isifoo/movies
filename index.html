@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerry's Movies and TV Show Tracker v17.0.0</title>
+    <title>Gerry's Movies and TV Show Tracker v18.0.0</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -680,6 +680,15 @@
 
             <div class="category">
                 <div class="category-header">
+                    <h2>✨ For You <span class="count" id="for-you-count">0</span></h2>
+                    <button onclick="requireAuth(() => refreshForYou())" title="Get fresh picks (uses your Claude API)" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
+                </div>
+                <div id="for-you-status" style="text-align: center; color: rgba(245,245,247,0.4); font-size: 0.8em; margin-bottom: 12px; display: none;"></div>
+                <div class="movie-grid" id="for-you-grid"></div>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
                     <h2>🎲 Quick Pick <span class="count" id="quick-pick-count">0</span></h2>
                     <button onclick="manualRefreshQuickPick()" title="Shuffle now" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
                 </div>
@@ -750,7 +759,10 @@
         <div id="movie-chat-panel" style="width: 100%; max-width: 480px; height: 100%; background: #131316; border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;">
             <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
                 <h2 style="font-size: 1.3em; font-weight: 600; margin: 0;">💬 Movie Chat</h2>
-                <button onclick="closeMovieChat()" style="padding: 8px 14px; font-size: 0.85em;">✕ Close</button>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="requireAuth(() => clearMovieChat())" title="Clear conversation" style="padding: 8px 14px; font-size: 0.85em;">🗑️ Clear</button>
+                    <button onclick="closeMovieChat()" style="padding: 8px 14px; font-size: 0.85em;">✕ Close</button>
+                </div>
             </div>
 
             <div id="movie-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px;"></div>
@@ -887,7 +899,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v17.0.0";
+        const APP_VERSION = "v18.0.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1142,6 +1154,7 @@
             
             renderAll();
             renderQuickPickInitial();
+            loadForYouInitial(); // reads cached picks only - never calls Claude on page load
         }
 
         // Save data to localStorage AND Firebase (auto-sync!)
@@ -2053,6 +2066,229 @@
             await replaceQuickPickTile(tmdbId);
         }
 
+        // ===== For You =====
+        // Weekly-ish picks reasoned by Claude (via the same chat proxy), not an
+        // algorithm - it looks at your full lists and standing preferences,
+        // same as the chat does, and returns 20 real, specific titles. Cached
+        // in Firebase and only regenerated when you click Refresh - opening
+        // the page just shows whatever's cached, never calls Claude on its own.
+        const FOR_YOU_COUNT = 20;
+
+        let forYouPool = []; // TMDB-shaped movie objects, same shape Quick Pick uses
+        let forYouLookup = {};
+        let forYouHidden = JSON.parse(localStorage.getItem('forYouHiddenIds') || '[]');
+
+        function saveForYouHidden() {
+            localStorage.setItem('forYouHiddenIds', JSON.stringify(forYouHidden));
+        }
+
+        async function loadForYouCache() {
+            try {
+                const doc = await db.collection('movieData').doc('gerrysForYou').get();
+                if (doc.exists) {
+                    return doc.data();
+                }
+            } catch (error) {
+                console.error('For You cache load error:', error);
+            }
+            return null;
+        }
+
+        async function saveForYouCache(movies) {
+            try {
+                await db.collection('movieData').doc('gerrysForYou').set({
+                    movies: movies,
+                    generatedAt: Date.now()
+                });
+            } catch (error) {
+                console.error('For You cache save error:', error);
+            }
+        }
+
+        function buildForYouSystemPrompt() {
+            // Reuses the exact same context-building the chat uses, so this
+            // reasons over the same full picture (all four lists + preferences).
+            const basePrompt = buildMovieChatSystemPrompt();
+            return basePrompt + `\n\nTASK: Generate exactly ${FOR_YOU_COUNT} recommendations for this week's "For You" list. Call suggest_movie_card for EACH of the ${FOR_YOU_COUNT} titles - no exceptions, no fewer, no more. Do not write any other text in your reply, just the ${FOR_YOU_COUNT} tool calls. Make them varied (not all one genre/era) and make sure none are already in any of the client's lists.`;
+        }
+
+        async function generateForYouPicks() {
+            if (!CHAT_PROXY_URL) {
+                return { error: 'Chat proxy isn\'t configured (CHAT_PROXY_URL is empty).' };
+            }
+
+            try {
+                const response = await fetch(CHAT_PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        system: buildForYouSystemPrompt(),
+                        messages: [{ role: 'user', content: `Generate this week's ${FOR_YOU_COUNT} "For You" picks now.` }],
+                        useTools: true
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    return { error: data.error || `HTTP ${response.status}` };
+                }
+
+                const contentBlocks = Array.isArray(data.content) ? data.content : [];
+                const suggestions = contentBlocks
+                    .filter(b => b.type === 'tool_use' && b.name === 'suggest_movie_card')
+                    .map(b => b.input);
+
+                if (suggestions.length === 0) {
+                    return { error: 'Claude didn\'t return any picks this time. Try refreshing again.' };
+                }
+
+                // Resolve each suggested title against TMDB for a real poster/id,
+                // same lookup pattern used for chat suggestion cards.
+                const resolved = await Promise.all(suggestions.map(async (s) => {
+                    try {
+                        const yearParam = s.year ? `&year=${encodeURIComponent(s.year)}` : '';
+                        const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(s.title)}${yearParam}`);
+                        const searchData = await res.json();
+                        const match = searchData.results && searchData.results[0];
+                        if (!match) return null;
+
+                        let imdbId = null;
+                        try {
+                            const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${match.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                            const details = await detailsRes.json();
+                            imdbId = details.imdb_id || null;
+                        } catch (e) { /* ignore */ }
+
+                        return { ...match, imdbId };
+                    } catch (e) {
+                        return null;
+                    }
+                }));
+
+                const movies = resolved.filter(m => m !== null);
+                return { movies };
+
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        async function refreshForYou() {
+            const status = document.getElementById('for-you-status');
+            status.style.display = 'block';
+            status.textContent = 'Asking Claude for this week\'s picks...';
+
+            const result = await generateForYouPicks();
+
+            if (result.error) {
+                status.textContent = `Couldn't refresh: ${result.error}`;
+                return;
+            }
+
+            await saveForYouCache(result.movies);
+            status.style.display = 'none';
+            renderForYouFromMovies(result.movies, Date.now());
+        }
+
+        function renderForYouFromMovies(movies, generatedAt) {
+            forYouPool = movies.filter(m => !forYouHidden.includes(m.id));
+            forYouLookup = {};
+
+            const grid = document.getElementById('for-you-grid');
+            const count = document.getElementById('for-you-count');
+            const status = document.getElementById('for-you-status');
+
+            count.textContent = forYouPool.length;
+
+            if (forYouPool.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>✨</div>
+                        <div>No picks yet - click Refresh to get this week's recommendations.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (generatedAt) {
+                const daysAgo = Math.floor((Date.now() - generatedAt) / (24 * 60 * 60 * 1000));
+                status.style.display = 'block';
+                status.textContent = daysAgo === 0 ? 'Generated today' : `Generated ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago`;
+            }
+
+            grid.innerHTML = forYouPool.map(movie => {
+                const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+                const year = movie.release_date ? movie.release_date.split('-')[0] : '';
+                const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+
+                forYouLookup[movie.id] = { title: movie.title, year, poster, imdbId: movie.imdbId, tmdbId: movie.id };
+
+                return `
+                    <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
+                        <div class="movie-poster">
+                            ${poster ? `<img src="${poster}" alt="${movie.title}">` : '🎬'}
+                        </div>
+                        <div class="movie-info" onclick="event.stopPropagation();">
+                            <div class="movie-info-title">
+                                <span class="movie-title">${movie.title}</span>
+                                ${year ? `<span class="movie-year">(${year})</span>` : ''}
+                            </div>
+                            <div class="movie-info-actions">
+                                <button onclick="requireAuth(() => addForYouToWatched(${movie.id}))" title="Mark as Watched">👁</button>
+                                <button onclick="requireAuth(() => hideForYouCard(${movie.id}))" title="Don't show again">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addForYouToWatched(tmdbId) {
+            const pick = forYouLookup[tmdbId];
+            if (!pick) return;
+
+            movieData.watched.push({
+                id: Date.now(),
+                title: pick.title,
+                year: pick.year,
+                poster: pick.poster,
+                imdbId: pick.imdbId || '',
+                tmdbId: tmdbId,
+                notes: ''
+            });
+
+            saveData();
+            forYouPool = forYouPool.filter(m => m.id !== tmdbId);
+            delete forYouLookup[tmdbId];
+            document.getElementById('for-you-count').textContent = forYouPool.length;
+            document.querySelector(`#for-you-grid [data-tmdb-id="${tmdbId}"]`)?.remove();
+        }
+
+        function hideForYouCard(tmdbId) {
+            if (!forYouHidden.includes(tmdbId)) {
+                forYouHidden.push(tmdbId);
+                saveForYouHidden();
+            }
+            forYouPool = forYouPool.filter(m => m.id !== tmdbId);
+            delete forYouLookup[tmdbId];
+            document.getElementById('for-you-count').textContent = forYouPool.length;
+            document.querySelector(`#for-you-grid [data-tmdb-id="${tmdbId}"]`)?.remove();
+        }
+
+        async function loadForYouInitial() {
+            const cache = await loadForYouCache();
+            if (cache && cache.movies && cache.movies.length > 0) {
+                renderForYouFromMovies(cache.movies, cache.generatedAt);
+            } else {
+                document.getElementById('for-you-grid').innerHTML = `
+                    <div class="empty-state">
+                        <div>✨</div>
+                        <div>No picks yet - click Refresh to get this week's recommendations.</div>
+                    </div>
+                `;
+            }
+        }
+
         // Refresh button: always pulls fresh titles from TMDB rather than reshuffling
         // whatever happens to already be cached, so you actually see new movies.
         async function manualRefreshQuickPick() {
@@ -2794,25 +3030,61 @@
             }
         }
 
+        // Clears the conversation history. Standing preferences (things like
+        // "no horror") are kept by default since they're meant to persist
+        // across resets - only wiped if you explicitly say yes to that too.
+        async function clearMovieChat() {
+            if (!confirm('Clear this conversation? Your standing preferences will be kept.')) {
+                return;
+            }
+
+            const alsoWipePreferences = movieChatPreferences &&
+                confirm('Also forget your standing preferences (like genres you dislike)? Choose Cancel to keep them.');
+
+            movieChatHistory = [];
+            if (alsoWipePreferences) {
+                movieChatPreferences = '';
+            }
+
+            await saveMovieChatState();
+            document.getElementById('movie-chat-messages').innerHTML = '';
+            addMovieChatMessage('system-note', 'Conversation cleared. Tell me what you\'re in the mood for, or say "surprise me".');
+        }
+
         function buildMovieChatSystemPrompt() {
             const watched = movieData.watched || [];
+            const wantToWatch = movieData.wantToWatch || [];
+            const comingSoon = movieData.comingSoon || [];
+            const oneDay = movieData.notMyCupOfTea || [];
+
             // Full list, no cap - rebuilt fresh every message (see sendMovieChatMessage)
-            // so anything newly marked watched is reflected in the very next message.
+            // so anything newly added/watched is reflected in the very next message.
             const sorted = [...watched].sort((a, b) => (b.clusterRating || 0) - (a.clusterRating || 0));
-            const summary = sorted.map(m => {
+            const watchedSummary = sorted.map(m => {
                 const r = m.clusterRating !== undefined ? m.clusterRating.toFixed(1) : '?';
                 return `${m.title} (${m.year || '?'}) - rated ${r}/10`;
             }).join('\n');
 
-            return `You are a film curator at a premium VOD platform. You know this client's full viewing history below and you're building their personal recommendations - not an algorithm, an actual knowledgeable person's picks. Be specific, be a little opinionated, and keep explanations to one sentence per movie unless asked for more.
+            const titleYearList = (list) => list.map(m => `${m.title} (${m.year || '?'})`).join('\n') || '(none)';
+
+            return `You are a film curator at a premium VOD platform. You know this client's full viewing history and current lists below and you're building their personal recommendations - not an algorithm, an actual knowledgeable person's picks. Be specific, be a little opinionated, and keep explanations to one sentence per movie unless asked for more.
 
 Standing preferences this client has told you (always respect these):
 ${movieChatPreferences || '(none recorded yet)'}
 
 Client's full watched list (title, year, their rating out of 10), ${watched.length} total:
-${summary}
+${watchedSummary || '(none)'}
 
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When you recommend a specific film or show, ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
+Client's "Want to Watch" list, ${wantToWatch.length} total - already saved, don't re-suggest these:
+${titleYearList(wantToWatch)}
+
+Client's "Coming Soon" list (not yet released), ${comingSoon.length} total:
+${titleYearList(comingSoon)}
+
+Client's "One Day" list (interested but not now, or previously passed on), ${oneDay.length} total - avoid re-suggesting unless the client asks about it directly:
+${titleYearList(oneDay)}
+
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. When you recommend a specific film or show, check it isn't already in one of the lists above, then ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
         }
 
         function openMovieChat() {
