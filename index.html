@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.5.0";
+        const APP_VERSION = "v21.5.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3314,7 +3314,7 @@ When the client tells you something about their taste (a genre they dislike, a d
                             <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
                             <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">${year || ''}</div>
                         </div>
-                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')"` : ''} style="width: 90px; height: 135px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; ${imdbLink ? 'cursor: pointer;' : ''}" title="${imdbLink ? 'Open on IMDb' : ''}">
+                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')"` : ''} style="width: 288px; height: 432px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; ${imdbLink ? 'cursor: pointer;' : ''}" title="${imdbLink ? 'Open on IMDb' : ''}">
                             ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
                         <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 4px; line-height: 1.2;">
