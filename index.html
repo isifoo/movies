@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.3.1";
+        const APP_VERSION = "v21.4.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3244,6 +3244,13 @@ When the client tells you something about their taste (a genre they dislike, a d
             const cardEl = document.createElement('div');
             cardEl.className = 'chat-message assistant';
             cardEl.style.padding = '10px 12px';
+            // .chat-message sets white-space: pre-wrap for normal chat text (so
+            // line breaks in Claude's replies show up) - but this card's HTML is
+            // written as an indented multi-line template literal, and pre-wrap
+            // was rendering all of that literal indentation/newlines as visible
+            // gaps between the title, poster and buttons. Override it back to
+            // normal HTML whitespace collapsing just for this element.
+            cardEl.style.whiteSpace = 'normal';
             cardEl.id = `chat-suggestion-${seq}`;
             cardEl.innerHTML = `<div style="text-align:center; font-size: 0.85em; color: rgba(245,245,247,0.5); padding: 10px;">Looking up "${safeSuggestedTitle}"...</div>`;
             messagesEl.appendChild(cardEl);
