@@ -756,8 +756,8 @@
     </div>
 
     <!-- Movie Chat Panel -->
-    <div id="movie-chat-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); z-index: 9000; justify-content: flex-end;">
-        <div id="movie-chat-panel" style="width: 100%; max-width: 480px; height: 100%; background: #131316; border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;">
+    <div id="movie-chat-overlay" onclick="closeMovieChat()" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); z-index: 9000; display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;">
+        <div id="movie-chat-panel" onclick="event.stopPropagation()" style="width: 100%; max-width: 624px; height: 100%; background: #131316; border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
             <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
                 <h2 style="font-size: 1.3em; font-weight: 600; margin: 0;">💬 Movie Chat</h2>
                 <div style="display: flex; gap: 8px;">
@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.1.0";
+        const APP_VERSION = "v21.2.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3183,7 +3183,13 @@ When the client tells you something about their taste (a genre they dislike, a d
         }
 
         function openMovieChat() {
-            document.getElementById('movie-chat-overlay').style.display = 'flex';
+            const overlay = document.getElementById('movie-chat-overlay');
+            const panel = document.getElementById('movie-chat-panel');
+            overlay.style.pointerEvents = 'auto';
+            overlay.style.opacity = '1';
+            requestAnimationFrame(() => {
+                panel.style.transform = 'translateX(0)';
+            });
             loadMovieChatState().then(() => {
                 renderMovieChatMessages();
                 if (movieChatHistory.length === 0) {
@@ -3194,7 +3200,11 @@ When the client tells you something about their taste (a genre they dislike, a d
         }
 
         function closeMovieChat() {
-            document.getElementById('movie-chat-overlay').style.display = 'none';
+            const overlay = document.getElementById('movie-chat-overlay');
+            const panel = document.getElementById('movie-chat-panel');
+            panel.style.transform = 'translateX(100%)';
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
         }
 
         function scrollMovieChatToBottom() {
@@ -3267,23 +3277,22 @@ When the client tells you something about their taste (a genre they dislike, a d
                 };
 
                 cardEl.innerHTML = `
-                    <div style="display: flex; gap: 12px; padding: 6px; align-items: flex-start;">
-                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 70px; height: 105px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;" title="${imdbLink ? 'Open on IMDb' : ''}">
-                            ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
-                        </div>
-                        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
-                            <div>
+                    <div style="padding: 6px;">
+                        <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px;">
+                            <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 49px; height: 74px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;" title="${imdbLink ? 'Open on IMDb' : ''}">
+                                ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
                                 <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
-                                <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">
-                                    ${year || ''}${imdbLink ? ` · <a href="${imdbLink}" target="_blank" style="color: #b57edc;">IMDb ↗</a>` : ''}
-                                </div>
+                                <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">${year || ''}</div>
                             </div>
-                            <div id="chat-suggestion-actions-${seq}" style="display: flex; flex-direction: column; gap: 6px;">
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">+ Want to Watch</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">🤞 One Day</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">✓ Watched</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;" title="Not interested - Claude will learn from this">✕</button>
-                            </div>
+                        </div>
+                        <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 4px;">
+                            ${imdbLink ? `<a href="${imdbLink}" target="_blank" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center; border-radius: 980px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #b57edc; text-decoration: none;">IMDb ↗</a>` : ''}
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">+ Want</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">🤞 Later</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">✓ Seen</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;" title="Not interested - Claude will learn from this">✕</button>
                         </div>
                     </div>
                 `;
@@ -3332,7 +3341,7 @@ When the client tells you something about their taste (a genre they dislike, a d
                 const buttonsEl = document.getElementById(`chat-suggestion-actions-${seq}`);
                 if (buttonsEl) {
                     const color = outcome === 'dismissed' ? 'rgba(245,245,247,0.4)' : '#4CAF50';
-                    buttonsEl.innerHTML = `<span style="color: ${color}; font-size: 0.8em;">${labels[outcome]}</span>`;
+                    buttonsEl.innerHTML = `<div style="flex: 1; text-align: center; color: ${color}; font-size: 0.8em;">${labels[outcome]}</div>`;
                 }
             }
 
