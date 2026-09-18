@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.6.2";
+        const APP_VERSION = "v21.7.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3080,6 +3080,32 @@
         // URL here:
         const CHAT_PROXY_URL = 'https://cold-sound-d987.gerryrufman.workers.dev'; // Cloudflare Worker proxy
 
+        // Chat backend switch: 'ollama' talks directly to a local Ollama server
+        // on this machine (free, but only works while it's running here -
+        // won't work from another device); 'cloudflare' talks through the
+        // Worker proxy above (works from anywhere, costs whatever that Worker's
+        // backend costs). Flip this one constant to switch - nothing else
+        // needs to change either way.
+        const CHAT_BACKEND = 'ollama';
+        const OLLAMA_URL = 'http://localhost:11434/api/chat';
+        const OLLAMA_MODEL = 'qwen2.5:14b';
+
+        // Same tool Claude/the Worker used server-side, now needed client-side
+        // too since local mode has no server in between to define it. There's
+        // no secret to protect in a local-only setup, so this is safe here.
+        const TITLE_SUGGESTION_TOOL_SCHEMA = {
+            name: 'suggest_title_card',
+            description: 'Suggest a specific movie OR TV show as an actionable card the user can tap to add to their list. Movies and TV series are equally valid here - this is not movie-only despite the general chat context. Use this every time you recommend a specific title of either kind, so the user can act on it with one tap instead of typing it in themselves. You can call this multiple times in one reply to suggest several titles.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string', description: 'The exact movie or TV show title' },
+                    year: { type: 'string', description: 'Release year (movies) or first-air year (TV shows), if known' },
+                },
+                required: ['title'],
+            },
+        };
+
         let movieChatHistory = []; // [{role: 'user'|'assistant', content: '...'}]
         let movieChatPreferences = ''; // free-text notes Claude has picked up about your taste
         let movieChatFeedback = []; // [{title, year, outcome, at}] - real reactions to past suggestions
@@ -3417,7 +3443,7 @@ When the client tells you something about their taste (a genre they dislike, a d
             const text = overrideText !== undefined ? overrideText : input.value.trim();
             if (!text) return;
 
-            if (!CHAT_PROXY_URL) {
+            if (CHAT_BACKEND === 'cloudflare' && !CHAT_PROXY_URL) {
                 addMovieChatMessage('system-note', 'Chat proxy isn\'t configured yet. Set CHAT_PROXY_URL in the code to your deployed Cloudflare Worker URL (see movie-chat-proxy-worker.js for setup steps).');
                 return;
             }
@@ -3441,29 +3467,68 @@ When the client tells you something about their taste (a genre they dislike, a d
             scrollMovieChatToBottom();
 
             try {
-                const response = await fetch(CHAT_PROXY_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        system: buildMovieChatSystemPrompt(),
-                        messages: movieChatHistory.map(m => ({ role: m.role, content: m.content })),
-                        useTools: true
-                    })
-                });
+                const systemPrompt = buildMovieChatSystemPrompt();
+                const historyMessages = movieChatHistory.map(m => ({ role: m.role, content: m.content }));
+                let data;
 
-                const data = await response.json();
-                thinkingEl.remove();
+                if (CHAT_BACKEND === 'ollama') {
+                    const ollamaResponse = await fetch(OLLAMA_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: OLLAMA_MODEL,
+                            stream: false,
+                            messages: [{ role: 'system', content: systemPrompt }, ...historyMessages],
+                            tools: [{ type: 'function', function: TITLE_SUGGESTION_TOOL_SCHEMA }],
+                        })
+                    });
+                    thinkingEl.remove();
 
-                if (!response.ok) {
-                    // The Worker's own errors are flat strings (e.g. "Only POST
-                    // is supported"), but when it forwards a raw Anthropic API
-                    // error, data.error is a nested {type, message} object -
-                    // stringifying that directly produced "[object Object]".
-                    const apiError = data.error;
-                    const errorMessage = typeof apiError === 'string'
-                        ? apiError
-                        : (apiError && apiError.message) || `HTTP ${response.status}`;
-                    throw new Error(errorMessage);
+                    if (!ollamaResponse.ok) {
+                        throw new Error(`Local Ollama server error (HTTP ${ollamaResponse.status}) - is Ollama running?`);
+                    }
+
+                    const ollamaData = await ollamaResponse.json();
+                    // Normalize Ollama's {message: {content, tool_calls}} shape
+                    // into the same {content: [...]} shape the code below
+                    // already expects, so nothing past this point needs to
+                    // know which backend actually answered.
+                    const content = [];
+                    const msg = ollamaData.message || {};
+                    if (msg.content) {
+                        content.push({ type: 'text', text: msg.content });
+                    }
+                    if (Array.isArray(msg.tool_calls)) {
+                        for (const call of msg.tool_calls) {
+                            content.push({ type: 'tool_use', name: call.function.name, input: call.function.arguments || {} });
+                        }
+                    }
+                    data = { content };
+                } else {
+                    const response = await fetch(CHAT_PROXY_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system: systemPrompt,
+                            messages: historyMessages,
+                            useTools: true
+                        })
+                    });
+
+                    data = await response.json();
+                    thinkingEl.remove();
+
+                    if (!response.ok) {
+                        // The Worker's own errors are flat strings (e.g. "Only POST
+                        // is supported"), but when it forwards a raw upstream API
+                        // error, data.error can be a nested {type, message} object -
+                        // stringifying that directly produced "[object Object]".
+                        const apiError = data.error;
+                        const errorMessage = typeof apiError === 'string'
+                            ? apiError
+                            : (apiError && apiError.message) || `HTTP ${response.status}`;
+                        throw new Error(errorMessage);
+                    }
                 }
 
                 // Claude's reply can mix plain text blocks with tool_use blocks
