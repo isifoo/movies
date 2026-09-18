@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.7.0";
+        const APP_VERSION = "v21.7.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3088,7 +3088,7 @@
         // needs to change either way.
         const CHAT_BACKEND = 'ollama';
         const OLLAMA_URL = 'http://localhost:11434/api/chat';
-        const OLLAMA_MODEL = 'qwen2.5:14b';
+        const OLLAMA_MODEL = 'llama3.1:8b'; // more reliable tool-calling than qwen2.5:14b at this app's real prompt size
 
         // Same tool Claude/the Worker used server-side, now needed client-side
         // too since local mode has no server in between to define it. There's
