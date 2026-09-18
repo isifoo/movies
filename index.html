@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.6.0";
+        const APP_VERSION = "v21.6.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3163,7 +3163,7 @@
 
             const titleYearList = (list) => list.map(m => `${m.title} (${m.year || '?'})`).join('\n') || '(none)';
 
-            return `You are a film AND TV curator at a premium VOD platform - movies and TV series are equally part of your job, not just a secondary case. You know this client's full viewing history and current lists below and you're building their personal recommendations - not an algorithm, an actual knowledgeable person's picks. Be specific, be a little opinionated, and keep explanations to one sentence per title unless asked for more.
+            return `You are a film AND TV curator at a premium VOD platform - movies and TV series are equally part of your job, not just a secondary case. You know this client's full viewing history and current lists below and you're building their personal recommendations - not an algorithm, an actual knowledgeable person's picks. Be specific, be a little opinionated, and keep explanations to one sentence per title unless asked for more. Hard rule, no exceptions: every single time you name a specific movie or TV show as a recommendation, you call suggest_title_card for it in that same reply - a title mentioned in prose without the matching tool call is a mistake, full stop. And unless the client explicitly asks for multiple options or a list, suggest exactly ONE title per reply, not several.
 
 Standing preferences this client has told you (always respect these):
 ${movieChatPreferences || '(none recorded yet)'}
@@ -3189,7 +3189,7 @@ ${(() => {
     const fmt = (list) => list.slice(-25).map(f => `${f.title} (${f.year || '?'})`).join(', ') || '(none)';
     return `\nReal reactions to your past suggestions in this chat - use this to actually learn what lands, not just what you'd generically recommend:\nLiked/acted on positively (added to Want to Watch or Watched): ${fmt(liked)}\nRejected (dismissed, or sent to One Day): ${fmt(disliked)}\n`;
 })()}
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific title, check it isn't already in one of the lists above, then ALWAYS call suggest_title_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there. This applies exactly the same way whether the title is a movie or a TV show - never skip the tool call just because it's a series.`;
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific title, check it isn't already in one of the lists above, then ALWAYS call suggest_title_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there. This applies exactly the same way whether the title is a movie or a TV show, and whether the client's request was specific or general/vague - never skip the tool call just because it's a series, and never skip it just because the request was open-ended. Reminder: default to one suggestion per reply, not a batch, unless multiple were explicitly requested.`;
         }
 
         function openMovieChat() {
