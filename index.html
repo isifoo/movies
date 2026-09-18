@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.5.1";
+        const APP_VERSION = "v21.6.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3473,10 +3473,15 @@ When the client tells you something about their taste (a genre they dislike, a d
 
                 const replyText = textParts.join('\n\n').trim() || (suggestedMovies.length > 0 ? '' : 'Sorry, I didn\'t get a usable reply.');
 
-                // Store only the text portion in history - Claude doesn't need to
-                // see its own past tool calls replayed for this simplified,
-                // one-way suggestion flow (it's not reacting to the outcome).
-                movieChatHistory.push({ role: 'assistant', content: replyText || '(suggested some titles)' });
+                // Store the text plus a plain-text note of any suggested titles -
+                // the tool_use blocks themselves aren't replayed (this is a
+                // simplified one-way suggestion flow), but without at least the
+                // titles in history, Claude has no memory of what it already
+                // suggested and will happily repeat the same pick next turn.
+                const suggestionNote = suggestedMovies.length > 0
+                    ? `\n[You suggested: ${suggestedMovies.map(s => `${s.title}${s.year ? ` (${s.year})` : ''}`).join(', ')}]`
+                    : '';
+                movieChatHistory.push({ role: 'assistant', content: (replyText || '(suggested some titles)') + suggestionNote });
                 if (replyText) {
                     addMovieChatMessage('assistant', replyText);
                 }
