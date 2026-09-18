@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.6.1";
+        const APP_VERSION = "v21.6.2";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3455,7 +3455,15 @@ When the client tells you something about their taste (a genre they dislike, a d
                 thinkingEl.remove();
 
                 if (!response.ok) {
-                    throw new Error(data.error || `HTTP ${response.status}`);
+                    // The Worker's own errors are flat strings (e.g. "Only POST
+                    // is supported"), but when it forwards a raw Anthropic API
+                    // error, data.error is a nested {type, message} object -
+                    // stringifying that directly produced "[object Object]".
+                    const apiError = data.error;
+                    const errorMessage = typeof apiError === 'string'
+                        ? apiError
+                        : (apiError && apiError.message) || `HTTP ${response.status}`;
+                    throw new Error(errorMessage);
                 }
 
                 // Claude's reply can mix plain text blocks with tool_use blocks
