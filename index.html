@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.3.0";
+        const APP_VERSION = "v21.3.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3145,6 +3145,7 @@
             const wantToWatch = movieData.wantToWatch || [];
             const comingSoon = movieData.comingSoon || [];
             const oneDay = movieData.notMyCupOfTea || [];
+            const tvShows = movieData.recommended || [];
 
             // Full list, no cap - rebuilt fresh every message (see sendMovieChatMessage)
             // so anything newly added/watched is reflected in the very next message.
@@ -3172,6 +3173,9 @@ ${titleYearList(comingSoon)}
 
 Client's "One Day" list (interested but not now, or previously passed on), ${oneDay.length} total - avoid re-suggesting unless the client asks about it directly:
 ${titleYearList(oneDay)}
+
+Client's "TV Shows" list, ${tvShows.length} total - already saved, don't re-suggest these:
+${titleYearList(tvShows)}
 ${(() => {
     if (movieChatFeedback.length === 0) return '';
     const liked = movieChatFeedback.filter(f => f.outcome === 'wantToWatch' || f.outcome === 'watched');
@@ -3179,7 +3183,7 @@ ${(() => {
     const fmt = (list) => list.slice(-25).map(f => `${f.title} (${f.year || '?'})`).join(', ') || '(none)';
     return `\nReal reactions to your past suggestions in this chat - use this to actually learn what lands, not just what you'd generically recommend:\nLiked/acted on positively (added to Want to Watch or Watched): ${fmt(liked)}\nRejected (dismissed, or sent to One Day): ${fmt(disliked)}\n`;
 })()}
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific film or show, check it isn't already in one of the lists above, then ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there.`;
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific title, check it isn't already in one of the lists above, then ALWAYS call suggest_movie_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there. This applies exactly the same way whether the title is a movie or a TV show - never skip the tool call just because it's a series.`;
         }
 
         function openMovieChat() {
@@ -3297,7 +3301,7 @@ When the client tells you something about their taste (a genre they dislike, a d
                             <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
                             <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">${year || ''}</div>
                         </div>
-                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 40px; height: 60px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 6px;" title="${imdbLink ? 'Open on IMDb' : ''}">
+                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')"` : ''} style="width: 40px; height: 60px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; ${imdbLink ? 'cursor: pointer;' : ''}" title="${imdbLink ? 'Open on IMDb' : ''}">
                             ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
                         <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 4px; line-height: 1.2;">
