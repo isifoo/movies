@@ -88,13 +88,13 @@ export default {
     // it does. This is what lets Claude suggest a specific movie as a
     // clickable card in the chat, instead of only describing it in text.
     const MOVIE_SUGGESTION_TOOL = {
-      name: 'suggest_movie_card',
-      description: 'Suggest a specific movie or show as an actionable card the user can tap to add to their list. Use this whenever you recommend a specific title, so the user can act on it with one tap instead of typing it in themselves. You can call this multiple times in one reply to suggest several titles.',
+      name: 'suggest_title_card',
+      description: 'Suggest a specific movie OR TV show as an actionable card the user can tap to add to their list. Movies and TV series are equally valid here - this is not movie-only despite the general chat context. Use this every time you recommend a specific title of either kind, so the user can act on it with one tap instead of typing it in themselves. You can call this multiple times in one reply to suggest several titles.',
       input_schema: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: 'The exact movie or show title' },
-          year: { type: 'string', description: 'Release year, if known' },
+          title: { type: 'string', description: 'The exact movie or TV show title' },
+          year: { type: 'string', description: 'Release year (movies) or first-air year (TV shows), if known' },
         },
         required: ['title'],
       },
