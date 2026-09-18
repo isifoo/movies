@@ -3267,20 +3267,22 @@ When the client tells you something about their taste (a genre they dislike, a d
                 };
 
                 cardEl.innerHTML = `
-                    <div style="display: flex; gap: 12px; padding: 6px;">
-                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 60px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;" title="${imdbLink ? 'Open on IMDb' : ''}">
+                    <div style="display: flex; gap: 12px; padding: 6px; align-items: flex-start;">
+                        <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 70px; height: 105px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center;" title="${imdbLink ? 'Open on IMDb' : ''}">
                             ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
-                            <div style="color: rgba(245,245,247,0.5); font-size: 0.8em; margin-bottom: 8px;">
-                                ${year || ''}${imdbLink ? ` · <a href="${imdbLink}" target="_blank" style="color: #b57edc;">IMDb ↗</a>` : ''}
+                        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
+                                <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">
+                                    ${year || ''}${imdbLink ? ` · <a href="${imdbLink}" target="_blank" style="color: #b57edc;">IMDb ↗</a>` : ''}
+                                </div>
                             </div>
-                            <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="padding: 6px 10px; font-size: 0.75em;">+ Want to Watch</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="padding: 6px 10px; font-size: 0.75em;">🤞 One Day</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="padding: 6px 10px; font-size: 0.75em;">✓ Watched</button>
-                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="padding: 6px 10px; font-size: 0.75em;" title="Not interested - Claude will learn from this">✕</button>
+                            <div id="chat-suggestion-actions-${seq}" style="display: flex; flex-direction: column; gap: 6px;">
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">+ Want to Watch</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">🤞 One Day</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;">✓ Watched</button>
+                                <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 0.75em; text-align: center;" title="Not interested - Claude will learn from this">✕</button>
                             </div>
                         </div>
                     </div>
@@ -3333,6 +3335,29 @@ When the client tells you something about their taste (a genre they dislike, a d
                     buttonsEl.innerHTML = `<span style="color: ${color}; font-size: 0.8em;">${labels[outcome]}</span>`;
                 }
             }
+
+            // Keep the conversation going: immediately ask Claude to react to
+            // this outcome and offer another suggestion, instead of leaving
+            // the chat waiting on the user to type something.
+            const followUpText = buildMovieChatFollowUpMessage(suggestion, outcome);
+            sendMovieChatMessage(followUpText, { silent: true });
+        }
+
+        // Builds the synthetic "user" message sent to Claude right after a
+        // suggestion-card button is clicked, so the chat keeps flowing.
+        function buildMovieChatFollowUpMessage(suggestion, outcome) {
+            const title = `"${suggestion.title}"${suggestion.year ? ` (${suggestion.year})` : ''}`;
+            switch (outcome) {
+                case 'wantToWatch':
+                    return `I added ${title} to my Want to Watch list. Suggest something else.`;
+                case 'notMyCupOfTea':
+                    return `I put ${title} in One Day (maybe later, not now). Suggest something else.`;
+                case 'watched':
+                    return `I just marked ${title} as watched. Suggest something else.`;
+                case 'dismissed':
+                default:
+                    return `I'm not interested in ${title} - please suggest something different.`;
+            }
         }
 
         function renderMovieChatMessages() {
@@ -3341,10 +3366,11 @@ When the client tells you something about their taste (a genre they dislike, a d
             movieChatHistory.forEach(msg => addMovieChatMessage(msg.role, msg.content));
         }
 
-        async function sendMovieChatMessage() {
+        async function sendMovieChatMessage(overrideText, opts = {}) {
+            const { silent = false } = opts;
             const input = document.getElementById('movie-chat-input');
             const sendBtn = document.getElementById('movie-chat-send-btn');
-            const text = input.value.trim();
+            const text = overrideText !== undefined ? overrideText : input.value.trim();
             if (!text) return;
 
             if (!CHAT_PROXY_URL) {
@@ -3352,12 +3378,16 @@ When the client tells you something about their taste (a genre they dislike, a d
                 return;
             }
 
-            input.value = '';
+            if (overrideText === undefined) {
+                input.value = '';
+            }
             input.disabled = true;
             sendBtn.disabled = true;
 
             movieChatHistory.push({ role: 'user', content: text });
-            addMovieChatMessage('user', text);
+            if (!silent) {
+                addMovieChatMessage('user', text);
+            }
 
             const thinkingEl = document.createElement('div');
             thinkingEl.className = 'chat-message assistant';
