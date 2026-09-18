@@ -900,7 +900,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.2.2";
+        const APP_VERSION = "v21.3.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3249,7 +3249,19 @@ When the client tells you something about their taste (a genre they dislike, a d
                 const yearParam = suggestion.year ? `&year=${encodeURIComponent(suggestion.year)}` : '';
                 const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(suggestion.title)}${yearParam}`);
                 const data = await res.json();
-                const match = data.results && data.results[0];
+                let match = data.results && data.results[0];
+                let mediaType = 'movie';
+
+                // Claude's suggest_movie_card tool covers TV shows too, but TMDB
+                // splits movies and TV into separate search endpoints - if the
+                // movie search comes up empty, retry as a TV show before giving up.
+                if (!match) {
+                    const tvYearParam = suggestion.year ? `&first_air_date_year=${encodeURIComponent(suggestion.year)}` : '';
+                    const tvRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(suggestion.title)}${tvYearParam}`);
+                    const tvData = await tvRes.json();
+                    match = tvData.results && tvData.results[0];
+                    mediaType = 'tv';
+                }
 
                 if (!match) {
                     cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">Couldn't find "${safeSuggestedTitle}" on TMDB.</div>`;
@@ -3258,39 +3270,42 @@ When the client tells you something about their taste (a genre they dislike, a d
 
                 let imdbId = null;
                 try {
-                    const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${match.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                    const detailsRes = await fetch(`https://api.themoviedb.org/3/${mediaType}/${match.id}/external_ids?api_key=${TMDB_API_KEY}`);
                     const details = await detailsRes.json();
                     imdbId = details.imdb_id || null;
                 } catch (e) { /* ignore, still usable without imdbId */ }
 
-                const year = match.release_date ? match.release_date.split('-')[0] : (suggestion.year || '');
+                const matchTitle = mediaType === 'tv' ? match.name : match.title;
+                const releaseDate = mediaType === 'tv' ? match.first_air_date : match.release_date;
+                const year = releaseDate ? releaseDate.split('-')[0] : (suggestion.year || '');
                 const poster = match.poster_path ? `${TMDB_IMAGE_BASE}${match.poster_path}` : null;
-                const safeTitle = escapeHtml(match.title);
+                const safeTitle = escapeHtml(matchTitle);
                 const imdbLink = imdbId ? `https://www.imdb.com/title/${imdbId}/` : null;
 
                 movieChatSuggestions[seq] = {
-                    title: match.title,
+                    title: matchTitle,
                     year: year,
                     poster: poster,
                     imdbId: imdbId,
-                    tmdbId: match.id
+                    tmdbId: match.id,
+                    mediaType: mediaType
                 };
 
                 cardEl.innerHTML = `
                     <div>
-                        <div style="text-align: left; margin-bottom: 6px;">
+                        <div style="text-align: left; line-height: 1.2; margin-bottom: 6px;">
                             <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 2px;">${safeTitle}</div>
                             <div style="color: rgba(245,245,247,0.5); font-size: 0.8em;">${year || ''}</div>
                         </div>
                         <div ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''} style="width: 40px; height: 60px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 6px;" title="${imdbLink ? 'Open on IMDb' : ''}">
                             ${poster ? `<img src="${poster}" alt="${safeTitle}" style="width: 100%; height: 100%; object-fit: cover;">` : '🎬'}
                         </div>
-                        <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 4px;">
-                            ${imdbLink ? `<a href="${imdbLink}" target="_blank" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center; border-radius: 980px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #b57edc; text-decoration: none;">IMDb ↗</a>` : ''}
-                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">+ Want</button>
-                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">🤞 Later</button>
-                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;">✓ Seen</button>
-                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="flex: 1; box-sizing: border-box; padding: 8px 4px; font-size: 0.72em; text-align: center;" title="Not interested - Claude will learn from this">✕</button>
+                        <div id="chat-suggestion-actions-${seq}" style="display: flex; gap: 4px; line-height: 1.2;">
+                            ${imdbLink ? `<a href="${imdbLink}" target="_blank" style="flex: 1; box-sizing: border-box; padding: 6px 4px; font-size: 0.72em; text-align: center; border-radius: 980px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #b57edc; text-decoration: none;">IMDb ↗</a>` : ''}
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'wantToWatch'))" style="flex: 1; box-sizing: border-box; padding: 6px 4px; font-size: 0.72em; text-align: center;">+ Want</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'notMyCupOfTea'))" style="flex: 1; box-sizing: border-box; padding: 6px 4px; font-size: 0.72em; text-align: center;">🤞 Later</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'watched'))" style="flex: 1; box-sizing: border-box; padding: 6px 4px; font-size: 0.72em; text-align: center;">✓ Seen</button>
+                            <button onclick="requireAuth(() => actOnMovieSuggestion(${seq}, 'dismissed'))" style="flex: 1; box-sizing: border-box; padding: 6px 4px; font-size: 0.72em; text-align: center;" title="Not interested - Claude will learn from this">✕</button>
                         </div>
                     </div>
                 `;
@@ -3310,6 +3325,8 @@ When the client tells you something about their taste (a genre they dislike, a d
             const suggestion = movieChatSuggestions[seq];
             if (!suggestion) return;
 
+            const isTV = suggestion.mediaType === 'tv';
+
             if (outcome !== 'dismissed') {
                 const movie = {
                     id: Date.now(),
@@ -3321,7 +3338,10 @@ When the client tells you something about their taste (a genre they dislike, a d
                     notes: ''
                 };
 
-                movieData[outcome].push(movie);
+                // TV shows only have one bucket in the data model (the "TV Shows"
+                // list) - there's no separate watched/one-day state for them, so
+                // any non-dismissed outcome for a show lands there instead.
+                movieData[isTV ? 'recommended' : outcome].push(movie);
                 saveData();
                 renderAll();
             }
@@ -3331,9 +3351,9 @@ When the client tells you something about their taste (a genre they dislike, a d
             const cardEl = document.getElementById(`chat-suggestion-${seq}`);
             if (cardEl) {
                 const labels = {
-                    wantToWatch: '✓ Added to Want to Watch',
-                    notMyCupOfTea: '✓ Added to One Day',
-                    watched: '✓ Marked as Watched',
+                    wantToWatch: isTV ? '✓ Added to TV Shows' : '✓ Added to Want to Watch',
+                    notMyCupOfTea: isTV ? '✓ Added to TV Shows' : '✓ Added to One Day',
+                    watched: isTV ? '✓ Added to TV Shows' : '✓ Marked as Watched',
                     dismissed: '✕ Dismissed - noted for next time'
                 };
                 const buttonsEl = document.getElementById(`chat-suggestion-actions-${seq}`);
