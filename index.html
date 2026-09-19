@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.8.0";
+        const APP_VERSION = "v21.9.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3406,41 +3406,25 @@ When the client tells you something about their taste (a genre they dislike, a d
                 }
             }
 
-            // Keep the conversation going: immediately ask Claude to react to
-            // this outcome and offer another suggestion, instead of leaving
-            // the chat waiting on the user to type something.
-            const followUpText = buildMovieChatFollowUpMessage(suggestion, outcome);
-            sendMovieChatMessage(followUpText, { silent: true });
+            // Note: this used to auto-fire a follow-up API call here to keep
+            // the conversation going after every button click. Removed - it
+            // was silently multiplying real Claude API calls (and cost) per
+            // click. Feedback is still recorded above for future prompts;
+            // the user just has to ask for another suggestion themselves now.
         }
 
         // Builds the synthetic "user" message sent to Claude right after a
         // suggestion-card button is clicked, so the chat keeps flowing.
-        function buildMovieChatFollowUpMessage(suggestion, outcome) {
-            const title = `"${suggestion.title}"${suggestion.year ? ` (${suggestion.year})` : ''}`;
-            switch (outcome) {
-                case 'wantToWatch':
-                    return `I added ${title} to my Want to Watch list. Suggest something else.`;
-                case 'notMyCupOfTea':
-                    return `I put ${title} in One Day (maybe later, not now). Suggest something else.`;
-                case 'watched':
-                    return `I just marked ${title} as watched. Suggest something else.`;
-                case 'dismissed':
-                default:
-                    return `I'm not interested in ${title} - please suggest something different.`;
-            }
-        }
-
         function renderMovieChatMessages() {
             const messagesEl = document.getElementById('movie-chat-messages');
             messagesEl.innerHTML = '';
             movieChatHistory.forEach(msg => addMovieChatMessage(msg.role, msg.content));
         }
 
-        async function sendMovieChatMessage(overrideText, opts = {}) {
-            const { silent = false } = opts;
+        async function sendMovieChatMessage() {
             const input = document.getElementById('movie-chat-input');
             const sendBtn = document.getElementById('movie-chat-send-btn');
-            const text = overrideText !== undefined ? overrideText : input.value.trim();
+            const text = input.value.trim();
             if (!text) return;
 
             if (CHAT_BACKEND === 'cloudflare' && !CHAT_PROXY_URL) {
@@ -3448,16 +3432,12 @@ When the client tells you something about their taste (a genre they dislike, a d
                 return;
             }
 
-            if (overrideText === undefined) {
-                input.value = '';
-            }
+            input.value = '';
             input.disabled = true;
             sendBtn.disabled = true;
 
             movieChatHistory.push({ role: 'user', content: text });
-            if (!silent) {
-                addMovieChatMessage('user', text);
-            }
+            addMovieChatMessage('user', text);
 
             const thinkingEl = document.createElement('div');
             thinkingEl.className = 'chat-message assistant';
