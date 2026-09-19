@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.9.0";
+        const APP_VERSION = "v21.9.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3324,6 +3324,16 @@ When the client tells you something about their taste (a genre they dislike, a d
                 const poster = match.poster_path ? `${TMDB_IMAGE_BASE}${match.poster_path}` : null;
                 const safeTitle = escapeHtml(matchTitle);
                 const imdbLink = imdbId ? `https://www.imdb.com/title/${imdbId}/` : null;
+
+                // Hard, code-level dedup check - the same guarantee "For You" and
+                // Quick Pick already have, now applied to chat suggestions too.
+                // Claude is told in the prompt not to re-suggest tracked titles,
+                // but that's just an instruction it can miss over a long list;
+                // this check can't miss, since it's a real lookup, not model recall.
+                if (movieAlreadyTracked(match.id, matchTitle, year)) {
+                    cardEl.innerHTML = `<div style="padding: 10px; font-size: 0.85em; color: rgba(245,245,247,0.5);">"${safeTitle}"${year ? ` (${year})` : ''} is already in one of your lists - not showing it as a new suggestion.</div>`;
+                    return;
+                }
 
                 movieChatSuggestions[seq] = {
                     title: matchTitle,
