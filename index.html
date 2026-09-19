@@ -901,7 +901,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v21.9.1";
+        const APP_VERSION = "v21.10.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -3172,7 +3172,63 @@
             addMovieChatMessage('system-note', 'Conversation cleared. Tell me what you\'re in the mood for, or say "surprise me".');
         }
 
-        function buildMovieChatSystemPrompt() {
+        // TMDB's fixed genre id -> name tables, used to make the candidate
+        // pool below readable to Claude (and to us, if we ever log it).
+        const TMDB_MOVIE_GENRES = { 28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History', 27:'Horror', 10402:'Music', 9648:'Mystery', 10749:'Romance', 878:'Sci-Fi', 10770:'TV Movie', 53:'Thriller', 10752:'War', 37:'Western' };
+        const TMDB_TV_GENRES = { 10759:'Action & Adventure', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary', 18:'Drama', 10751:'Family', 10762:'Kids', 9648:'Mystery', 10763:'News', 10764:'Reality', 10765:'Sci-Fi & Fantasy', 10766:'Soap', 10767:'Talk', 10768:'War & Politics', 37:'Western' };
+
+        let movieChatCandidatePool = null;
+        let movieChatCandidatePoolFetchedAt = 0;
+
+        // Builds a pool of well-regarded titles that are NOT already in any of
+        // the client's lists, using the same TMDB discover + movieAlreadyTracked
+        // filter Quick Pick already relies on. Handing Claude only this
+        // pre-cleaned pool (instead of open-ended free choice) makes it
+        // structurally impossible for a suggestion to be a duplicate - the
+        // check happens before the paid API call, not after it.
+        async function fetchMovieChatCandidatePool() {
+            const FRESH_MS = 30 * 60 * 1000;
+            if (movieChatCandidatePool && (Date.now() - movieChatCandidatePoolFetchedAt) < FRESH_MS) {
+                return movieChatCandidatePool;
+            }
+
+            const pool = [];
+            try {
+                for (let page = 1; page <= 4; page++) {
+                    const [movieRes, tvRes] = await Promise.all([
+                        fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&sort_by=popularity.desc&vote_average.gte=6.5&vote_count.gte=100&page=${page}`),
+                        fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&sort_by=popularity.desc&vote_average.gte=6.5&vote_count.gte=100&page=${page}`)
+                    ]);
+                    const [movieData, tvData] = await Promise.all([movieRes.json(), tvRes.json()]);
+
+                    (movieData.results || []).forEach(m => pool.push({
+                        tmdbId: m.id,
+                        title: m.title,
+                        year: m.release_date ? m.release_date.split('-')[0] : '',
+                        mediaType: 'movie',
+                        voteAverage: m.vote_average ? m.vote_average.toFixed(1) : '?',
+                        genreNames: (m.genre_ids || []).map(id => TMDB_MOVIE_GENRES[id]).filter(Boolean)
+                    }));
+                    (tvData.results || []).forEach(t => pool.push({
+                        tmdbId: t.id,
+                        title: t.name,
+                        year: t.first_air_date ? t.first_air_date.split('-')[0] : '',
+                        mediaType: 'tv',
+                        voteAverage: t.vote_average ? t.vote_average.toFixed(1) : '?',
+                        genreNames: (t.genre_ids || []).map(id => TMDB_TV_GENRES[id]).filter(Boolean)
+                    }));
+                }
+            } catch (e) {
+                console.error('Failed to fetch movie chat candidate pool:', e);
+            }
+
+            const cleaned = pool.filter(c => !movieAlreadyTracked(c.tmdbId, c.title, c.year));
+            movieChatCandidatePool = cleaned;
+            movieChatCandidatePoolFetchedAt = Date.now();
+            return cleaned;
+        }
+
+        function buildMovieChatSystemPrompt(candidatePool) {
             const watched = movieData.watched || [];
             const wantToWatch = movieData.wantToWatch || [];
             const comingSoon = movieData.comingSoon || [];
@@ -3208,6 +3264,11 @@ ${titleYearList(oneDay)}
 
 Client's "TV Shows" list, ${tvShows.length} total - already saved, don't re-suggest these:
 ${titleYearList(tvShows)}
+${candidatePool && candidatePool.length > 0 ? `
+Recommendation candidates - this list has ALREADY been checked against every list above and contains nothing the client has tracked. You may ONLY recommend a title from this list - never name something from your own general knowledge that isn't here, even if you think of a better fit, since anything off this list risks being something they already have:
+${candidatePool.map(c => `- ${c.title} (${c.year}) [${c.mediaType === 'tv' ? 'TV' : 'Movie'}]${c.genreNames.length ? ` - ${c.genreNames.join('/')}` : ''} - TMDB rating ${c.voteAverage}/10`).join('\n')}
+If genuinely nothing above fits the request, say so honestly rather than naming an off-list title.
+` : ''}
 ${(() => {
     if (movieChatFeedback.length === 0) return '';
     const liked = movieChatFeedback.filter(f => f.outcome === 'wantToWatch' || f.outcome === 'watched');
@@ -3215,7 +3276,9 @@ ${(() => {
     const fmt = (list) => list.slice(-25).map(f => `${f.title} (${f.year || '?'})`).join(', ') || '(none)';
     return `\nReal reactions to your past suggestions in this chat - use this to actually learn what lands, not just what you'd generically recommend:\nLiked/acted on positively (added to Want to Watch or Watched): ${fmt(liked)}\nRejected (dismissed, or sent to One Day): ${fmt(disliked)}\n`;
 })()}
-When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific title, check it isn't already in one of the lists above, then ALWAYS call suggest_title_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there. This applies exactly the same way whether the title is a movie or a TV show, and whether the client's request was specific or general/vague - never skip the tool call just because it's a series, and never skip it just because the request was open-ended. Reminder: default to one suggestion per reply, not a batch, unless multiple were explicitly requested.`;
+When the client tells you something about their taste (a genre they dislike, a director they love, anything durable), acknowledge it naturally in your reply. Pay attention to the real reactions above - if a type of pick keeps getting rejected, adjust; if something similar to a liked pick fits, lean into it. When you recommend a specific title, check it isn't already in one of the lists above, then ALWAYS call suggest_title_card for it (in addition to your normal text) so the client can add it with one tap - don't just name it in prose and stop there. This applies exactly the same way whether the title is a movie or a TV show, and whether the client's request was specific or general/vague - never skip the tool call just because it's a series, and never skip it just because the request was open-ended. Reminder: default to one suggestion per reply, not a batch, unless multiple were explicitly requested.
+
+Every reply the client pays for, so never spend one asking a clarifying question when you could just make a call. Even for vague requests like "I want to see something" or "surprise me," pick your best guess directly from the candidate list using their taste profile and explain your reasoning - do not ask what mood/genre/actor they're thinking of first. Only ask a real follow-up question if the request is genuinely unanswerable (e.g. they asked about a title, not for a recommendation at all).`;
         }
 
         function openMovieChat() {
@@ -3457,7 +3520,8 @@ When the client tells you something about their taste (a genre they dislike, a d
             scrollMovieChatToBottom();
 
             try {
-                const systemPrompt = buildMovieChatSystemPrompt();
+                const candidatePool = await fetchMovieChatCandidatePool();
+                const systemPrompt = buildMovieChatSystemPrompt(candidatePool);
                 const historyMessages = movieChatHistory.map(m => ({ role: m.role, content: m.content }));
                 let data;
 
