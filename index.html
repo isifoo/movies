@@ -556,6 +556,27 @@
             background: rgba(255, 255, 255, 0.08);
         }
 
+        /* The <select> box itself picks up the dark background above, but its
+           native dropdown option list doesn't inherit a transparent (rgba)
+           background in most browsers - it needs an explicit solid color or
+           it falls back to browser-default white/light text-on-white. */
+        select option {
+            background-color: #1c1c1e;
+            color: #f5f5f7;
+        }
+
+        /* Compact number inputs (like the watched-list rating filter) don't
+           have room for the browser's built-in spinner arrows without their
+           digits getting clipped - hide the spinners on ones opting in. */
+        input.compact-number::-webkit-outer-spin-button,
+        input.compact-number::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input.compact-number {
+            -moz-appearance: textfield;
+        }
+
         textarea {
             resize: vertical;
             min-height: 80px;
@@ -715,28 +736,28 @@
                     <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
                 </div>
                 <div id="watched-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
-                    <select id="watched-filter-groupby" onchange="renderWatchedGrid()">
+                    <select id="watched-filter-groupby" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="decade">Group: Decade</option>
                         <option value="genre">Group: Genre</option>
                         <option value="none">No grouping</option>
                     </select>
-                    <select id="watched-filter-sort" onchange="renderWatchedGrid()">
+                    <select id="watched-filter-sort" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="year-desc">Sort: Newest first</option>
                         <option value="year-asc">Sort: Oldest first</option>
                         <option value="rating-desc">Sort: Rating high-low</option>
                         <option value="rating-asc">Sort: Rating low-high</option>
                         <option value="title-asc">Sort: Title A-Z</option>
                     </select>
-                    <select id="watched-filter-genre" onchange="renderWatchedGrid()">
+                    <select id="watched-filter-genre" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="">All genres</option>
                     </select>
-                    <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                         Rating
-                        <input type="number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 55px;" oninput="renderWatchedGrid()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
                         to
-                        <input type="number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 55px;" oninput="renderWatchedGrid()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
                     </label>
-                    <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em;">Reset</button>
+                    <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em; white-space: nowrap;">Reset</button>
                 </div>
                 <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
                 <div class="movie-grid" id="watched-grid"></div>
@@ -860,7 +881,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.2.0";
+        const APP_VERSION = "v22.2.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -2750,18 +2771,16 @@
 
         // Delete movie
         function deleteMovie(category, movieId) {
-            if (confirm('Are you sure you want to delete this movie?')) {
-                movieData[category] = movieData[category].filter(m => m.id !== movieId);
-                saveData();
-                if (category === 'watched') {
-                    if (watchedViewMode === 'cluster') {
-                        renderWatchedCluster();
-                    } else {
-                        renderWatchedGrid();
-                    }
+            movieData[category] = movieData[category].filter(m => m.id !== movieId);
+            saveData();
+            if (category === 'watched') {
+                if (watchedViewMode === 'cluster') {
+                    renderWatchedCluster();
                 } else {
-                    renderAll();
+                    renderWatchedGrid();
                 }
+            } else {
+                renderAll();
             }
         }
 
