@@ -319,6 +319,74 @@
             gap: 16px;
         }
 
+        .movie-grid.list-mode {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .movie-list-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+
+        .movie-list-row:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .movie-list-thumb {
+            width: 36px;
+            height: 50px;
+            flex-shrink: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .movie-list-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .movie-list-title {
+            flex: 1;
+            min-width: 0;
+            font-size: 0.9em;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .movie-list-meta {
+            font-size: 0.78em;
+            color: rgba(245, 245, 247, 0.5);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .movie-list-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .movie-list-actions button {
+            padding: 6px 10px;
+            font-size: 0.85em;
+        }
+
         .movie-card {
             background: rgba(255, 255, 255, 0.04);
             border-radius: 12px;
@@ -736,6 +804,11 @@
                     <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
                 </div>
                 <div id="watched-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
+                    <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
+                        <button type="button" id="watched-layout-grid-btn" onclick="setWatchedLayoutMode('grid')" title="Thumbnail view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none;">▦</button>
+                        <button type="button" id="watched-layout-list-btn" onclick="setWatchedLayoutMode('list')" title="List view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰</button>
+                    </div>
+                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderWatchedGrid()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
                     <select id="watched-filter-groupby" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="decade">Group: Decade</option>
                         <option value="genre">Group: Genre</option>
@@ -759,7 +832,8 @@
                 <div id="watched-genre-chips-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
                     <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px;"></div>
                     <div style="display: flex; gap: 6px; align-items: center;">
-                        <input type="text" id="watched-genre-new-input" placeholder="Add a genre tag..." style="width: 150px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomGenre();}">
+                        <input type="text" id="watched-genre-new-input" list="watched-genre-datalist" placeholder="Add a genre tag..." style="width: 150px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomGenre();}">
+                        <datalist id="watched-genre-datalist"></datalist>
                         <button type="button" class="secondary" onclick="addCustomGenre()" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
                     </div>
                 </div>
@@ -885,7 +959,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.3.0";
+        const APP_VERSION = "v22.4.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1215,6 +1289,8 @@
             document.getElementById('main-view').style.display = 'none';
             document.getElementById('watched-view').style.display = 'block';
             setWatchedViewMode(watchedViewMode);
+            document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', watchedViewLayout === 'grid');
+            document.getElementById('watched-layout-list-btn').classList.toggle('secondary', watchedViewLayout === 'list');
             if (watchedViewMode === 'grid') {
                 renderWatchedGrid();
             }
@@ -1229,6 +1305,15 @@
 
         // Grid vs Cluster mode for the Watched view - remembers the last choice
         let watchedViewMode = localStorage.getItem('watchedViewMode') || 'grid';
+        let watchedViewLayout = localStorage.getItem('watchedViewLayout') || 'grid';
+
+        function setWatchedLayoutMode(mode) {
+            watchedViewLayout = mode;
+            localStorage.setItem('watchedViewLayout', mode);
+            document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', mode === 'grid');
+            document.getElementById('watched-layout-list-btn').classList.toggle('secondary', mode === 'list');
+            renderWatchedGrid();
+        }
 
         function setWatchedViewMode(mode) {
             watchedViewMode = mode;
@@ -1283,6 +1368,32 @@
             `;
         }
 
+        // Compact horizontal row, the Watched grid's alternative to
+        // buildMovieCardHtml - same actions, denser layout for scanning many
+        // titles at once (Dropbox-style thumbnail/list toggle).
+        function buildMovieListRowHtml(movie, category) {
+            const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
+            const safeTitle = escapeHtml(movie.title);
+            const genreText = movie.genreNames && movie.genreNames.length ? escapeHtml(movie.genreNames.join(', ')) : '';
+            const ratingText = movie.clusterRating !== undefined ? `⭐ ${movie.clusterRating.toFixed(1)}` : '';
+
+            return `
+                <div class="movie-list-row" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
+                    <div class="movie-list-thumb">
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
+                    </div>
+                    <div class="movie-list-title">
+                        ${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}
+                    </div>
+                    <div class="movie-list-meta">${[ratingText, genreText].filter(Boolean).join(' · ')}</div>
+                    <div class="movie-list-actions" onclick="event.stopPropagation();">
+                        <button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>
+                        <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
+                    </div>
+                </div>
+            `;
+        }
+
         // Populates the genre filter dropdown once, from the full set of
         // genre names TMDB can return - not from what's currently enriched,
         // so it doesn't change shape as enrichment finishes in the background.
@@ -1298,6 +1409,11 @@
             const container = document.getElementById('watched-genre-chips');
             if (!container) return;
             const genres = movieData.customGenres || [];
+
+            const datalist = document.getElementById('watched-genre-datalist');
+            if (datalist) {
+                datalist.innerHTML = getValidWatchedGenres().map(g => `<option value="${escapeHtml(g)}"></option>`).join('');
+            }
 
             if (genres.length === 0) {
                 container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">No genre tags yet - add one on the right.</span>`;
@@ -1319,25 +1435,42 @@
             }).join('');
         }
 
+        // Genre chips are exclusive (radio-like): selecting one turns off any
+        // other, since OR-combining several tags almost never narrows results
+        // in a useful way and just confused what was actually being filtered.
         function toggleGenreFilter(genre) {
-            if (activeGenreFilters.has(genre)) {
-                activeGenreFilters.delete(genre);
-            } else {
+            const wasOnlyActive = activeGenreFilters.has(genre) && activeGenreFilters.size === 1;
+            activeGenreFilters.clear();
+            if (!wasOnlyActive) {
                 activeGenreFilters.add(genre);
             }
             renderGenreChips();
             renderWatchedGrid();
         }
 
+        // Every genre chip must be a name TMDB actually tags titles with -
+        // otherwise it can never match anything (e.g. "Film Noir" isn't part
+        // of TMDB's genre taxonomy for movies or TV, so it would silently
+        // return zero results forever). getValidWatchedGenres() is the same
+        // vocabulary fetchTmdbEnrichmentForWatchedItem() assigns from.
+        function getValidWatchedGenres() {
+            return [...new Set([...Object.values(TMDB_MOVIE_GENRES), ...Object.values(TMDB_TV_GENRES)])].sort();
+        }
+
         function addCustomGenre() {
             const input = document.getElementById('watched-genre-new-input');
             const value = input.value.trim();
             if (!value) return;
+            const validMatch = getValidWatchedGenres().find(g => g.toLowerCase() === value.toLowerCase());
+            if (!validMatch) {
+                alert(`"${value}" isn't a genre TMDB tags titles with, so it would never match anything.\n\nPick one from the suggestions as you type (e.g. Action, Sci-Fi, Thriller, Animation...).`);
+                return;
+            }
             if (!movieData.customGenres) movieData.customGenres = [];
-            const alreadyExists = movieData.customGenres.some(g => g.toLowerCase() === value.toLowerCase());
+            const alreadyExists = movieData.customGenres.some(g => g.toLowerCase() === validMatch.toLowerCase());
             input.value = '';
             if (alreadyExists) return;
-            movieData.customGenres.push(value);
+            movieData.customGenres.push(validMatch);
             saveData();
             renderGenreChips();
         }
@@ -1355,6 +1488,7 @@
             document.getElementById('watched-filter-sort').value = 'year-desc';
             document.getElementById('watched-filter-rating-min').value = '';
             document.getElementById('watched-filter-rating-max').value = '';
+            document.getElementById('watched-filter-search').value = '';
             activeGenreFilters.clear();
             renderGenreChips();
             renderWatchedGrid();
@@ -1367,10 +1501,11 @@
         function getFilteredSortedWatchedMovies() {
             const ratingMin = parseFloat(document.getElementById('watched-filter-rating-min')?.value);
             const ratingMax = parseFloat(document.getElementById('watched-filter-rating-max')?.value);
+            const searchTerm = (document.getElementById('watched-filter-search')?.value || '').trim().toLowerCase();
             const sortBy = document.getElementById('watched-filter-sort')?.value || 'year-desc';
 
             let movies = movieData.watched.filter(movie => {
-                // Genre chips are OR'd together - matching any active tag is enough.
+                // Genre chips are exclusive - at most one is ever active.
                 if (activeGenreFilters.size > 0) {
                     const movieGenres = movie.genreNames || [];
                     const matchesAny = [...activeGenreFilters].some(g => movieGenres.includes(g));
@@ -1378,6 +1513,7 @@
                 }
                 if (!isNaN(ratingMin) && (movie.clusterRating ?? -1) < ratingMin) return false;
                 if (!isNaN(ratingMax) && (movie.clusterRating ?? 999) > ratingMax) return false;
+                if (searchTerm && !movie.title.toLowerCase().includes(searchTerm)) return false;
                 return true;
             });
 
@@ -1426,6 +1562,19 @@
             // per movie, ever) before filtering/grouping by either.
             if (groupBy === 'genre' || activeGenreFilters.size > 0 ||
                 document.getElementById('watched-filter-rating-min')?.value || document.getElementById('watched-filter-rating-max')?.value) {
+                // One-time migration: enrichment used to only ever query TMDB's
+                // movie search endpoint, so TV shows in this list got no genre
+                // match and silently fell back to a fake clusterRating of 5.0 -
+                // masking their real rating and making them unfindable by
+                // genre. That exact fallback signature (rating precisely 5,
+                // zero genres) is cleared so the fixed movie+TV lookup below
+                // re-enriches them correctly.
+                movieData.watched.forEach(m => {
+                    if (m.clusterRating === 5 && Array.isArray(m.genreNames) && m.genreNames.length === 0) {
+                        m.clusterRating = undefined;
+                        m.genreNames = undefined;
+                    }
+                });
                 const missing = movieData.watched.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
                 if (missing > 0) {
                     status.style.display = 'block';
@@ -1444,6 +1593,10 @@
             if (myRenderToken !== watchedGridRenderToken) return;
 
             const movies = getFilteredSortedWatchedMovies();
+            grid.classList.toggle('list-mode', watchedViewLayout === 'list');
+            const renderItem = watchedViewLayout === 'list'
+                ? movie => buildMovieListRowHtml(movie, 'watched')
+                : movie => buildMovieCardHtml(movie, 'watched');
 
             if (movies.length === 0) {
                 grid.innerHTML = `<div class="empty-state"><div>🔍</div><div>No watched titles match these filters.</div></div>`;
@@ -1451,7 +1604,7 @@
             }
 
             if (groupBy === 'none') {
-                grid.innerHTML = movies.map(movie => buildMovieCardHtml(movie, 'watched')).join('');
+                grid.innerHTML = movies.map(renderItem).join('');
                 return;
             }
 
@@ -1478,7 +1631,7 @@
 
             grid.innerHTML = labels.map(label => {
                 const header = `<div class="decade-header">${label}<span class="decade-count">${groups[label].length}</span></div>`;
-                const cards = groups[label].map(movie => buildMovieCardHtml(movie, 'watched')).join('');
+                const cards = groups[label].map(renderItem).join('');
                 return header + cards;
             }).join('');
         }
@@ -1490,20 +1643,50 @@
         // overlap. Ratings are fetched once per movie (matched by title+year)
         // and cached onto the movie object itself, so this is a one-time cost.
 
-        // TMDB genre id -> name, used to enrich watched movies for filtering.
-        const WATCHED_GENRE_MAP = { 28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History', 27:'Horror', 10402:'Music', 9648:'Mystery', 10749:'Romance', 878:'Sci-Fi', 10770:'TV Movie', 53:'Thriller', 10752:'War', 37:'Western' };
-
+        // Enrichment used to only ever query TMDB's /search/movie endpoint,
+        // even for TV shows that end up in the watched list (anything moved
+        // there from "recommended", plus older items added before mediaType
+        // was tracked at all). A TV show has no movie match, so it silently
+        // fell back to a fake 5.0 rating and an empty genre list - hiding its
+        // real rating and making it unfindable by genre. Fixed by searching
+        // BOTH endpoints and picking whichever result's title actually
+        // matches; a known mediaType/originalCategory short-circuits this
+        // when available, but items missing both (legacy data) are still
+        // resolved correctly via the title-match comparison.
         async function fetchTmdbEnrichmentForMovie(movie) {
+            const query = encodeURIComponent(movie.title);
+            const yearNum = movie.year || '';
+            const knownType = (movie.mediaType === 'tv' || movie.originalCategory === 'recommended') ? 'tv'
+                : movie.mediaType === 'movie' ? 'movie' : null;
             try {
-                const query = encodeURIComponent(movie.title);
-                const yearParam = movie.year ? `&year=${encodeURIComponent(movie.year)}` : '';
-                const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}${yearParam}`);
-                const data = await res.json();
-                const match = data.results && data.results[0];
-                if (!match) return null;
+                const [movieData_, tvData] = await Promise.all([
+                    knownType === 'tv' ? null : fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}${yearNum ? `&year=${encodeURIComponent(yearNum)}` : ''}`).then(r => r.json()).catch(() => null),
+                    knownType === 'movie' ? null : fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${query}${yearNum ? `&first_air_date_year=${encodeURIComponent(yearNum)}` : ''}`).then(r => r.json()).catch(() => null)
+                ]);
+                const movieMatch = movieData_?.results?.[0];
+                const tvMatch = tvData?.results?.[0];
+                const titleLower = movie.title.trim().toLowerCase();
+                const movieExact = movieMatch && (movieMatch.title || '').trim().toLowerCase() === titleLower;
+                const tvExact = tvMatch && (tvMatch.name || '').trim().toLowerCase() === titleLower;
+
+                let pick = null, type = null;
+                if (knownType === 'tv' && tvMatch) { pick = tvMatch; type = 'tv'; }
+                else if (knownType === 'movie' && movieMatch) { pick = movieMatch; type = 'movie'; }
+                else if (movieExact && !tvExact) { pick = movieMatch; type = 'movie'; }
+                else if (tvExact && !movieExact) { pick = tvMatch; type = 'tv'; }
+                else if (movieExact && tvExact) {
+                    type = (movieMatch.popularity || 0) >= (tvMatch.popularity || 0) ? 'movie' : 'tv';
+                    pick = type === 'movie' ? movieMatch : tvMatch;
+                } else if (movieMatch || tvMatch) {
+                    type = movieMatch ? 'movie' : 'tv';
+                    pick = movieMatch || tvMatch;
+                }
+
+                if (!pick) return null;
+                const genreMap = type === 'tv' ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
                 return {
-                    rating: match.vote_average,
-                    genreNames: (match.genre_ids || []).map(id => WATCHED_GENRE_MAP[id]).filter(Boolean)
+                    rating: pick.vote_average,
+                    genreNames: (pick.genre_ids || []).map(id => genreMap[id]).filter(Boolean)
                 };
             } catch (error) {
                 console.error('Enrichment fetch failed for', movie.title, error);
