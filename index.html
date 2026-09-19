@@ -714,6 +714,31 @@
                 <div class="category-header">
                     <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
                 </div>
+                <div id="watched-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
+                    <select id="watched-filter-groupby" onchange="renderWatchedGrid()">
+                        <option value="decade">Group: Decade</option>
+                        <option value="genre">Group: Genre</option>
+                        <option value="none">No grouping</option>
+                    </select>
+                    <select id="watched-filter-sort" onchange="renderWatchedGrid()">
+                        <option value="year-desc">Sort: Newest first</option>
+                        <option value="year-asc">Sort: Oldest first</option>
+                        <option value="rating-desc">Sort: Rating high-low</option>
+                        <option value="rating-asc">Sort: Rating low-high</option>
+                        <option value="title-asc">Sort: Title A-Z</option>
+                    </select>
+                    <select id="watched-filter-genre" onchange="renderWatchedGrid()">
+                        <option value="">All genres</option>
+                    </select>
+                    <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px;">
+                        Rating
+                        <input type="number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 55px;" oninput="renderWatchedGrid()">
+                        to
+                        <input type="number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 55px;" oninput="renderWatchedGrid()">
+                    </label>
+                    <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em;">Reset</button>
+                </div>
+                <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
                 <div class="movie-grid" id="watched-grid"></div>
             </div>
             <div class="category" id="watched-cluster-mode" style="display: none;">
@@ -835,7 +860,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.1.0";
+        const APP_VERSION = "v22.2.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1140,7 +1165,7 @@
             renderCategory('comingSoon', 'coming-soon-grid', 'coming-soon-count');
             renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
             renderCategory('recommended', 'recommended-grid', 'recommended-count');
-            // Watched is rendered separately (renderWatchedByDecade) only when its
+            // Watched is rendered separately (renderWatchedGrid) only when its
             // view is shown, so switching to it always reflects the latest data.
             // Quick Pick is intentionally NOT reshuffled here - it only changes when
             // you click Refresh (full reshuffle) or action a tile (that tile swaps).
@@ -1154,7 +1179,7 @@
             document.getElementById('watched-view').style.display = 'block';
             setWatchedViewMode(watchedViewMode);
             if (watchedViewMode === 'grid') {
-                renderWatchedByDecade();
+                renderWatchedGrid();
             }
             window.scrollTo(0, 0);
         }
@@ -1221,14 +1246,67 @@
             `;
         }
 
-        function renderWatchedByDecade() {
+        // Populates the genre filter dropdown once, from the full set of
+        // genre names TMDB can return - not from what's currently enriched,
+        // so it doesn't change shape as enrichment finishes in the background.
+        function populateWatchedGenreFilter() {
+            const select = document.getElementById('watched-filter-genre');
+            if (!select || select.options.length > 1) return; // already populated
+            const names = [...new Set(Object.values(WATCHED_GENRE_MAP))].sort();
+            names.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+        }
+
+        function resetWatchedFilters() {
+            document.getElementById('watched-filter-groupby').value = 'decade';
+            document.getElementById('watched-filter-sort').value = 'year-desc';
+            document.getElementById('watched-filter-genre').value = '';
+            document.getElementById('watched-filter-rating-min').value = '';
+            document.getElementById('watched-filter-rating-max').value = '';
+            renderWatchedGrid();
+        }
+
+        // A generic, composable filter: every criterion is a plain check on
+        // the filter-state read from the bar's inputs. Adding a new criterion
+        // later (e.g. a "hide already-had-a-note" checkbox) means adding one
+        // more field here, not restructuring the render pipeline.
+        function getFilteredSortedWatchedMovies() {
+            const genre = document.getElementById('watched-filter-genre')?.value || '';
+            const ratingMin = parseFloat(document.getElementById('watched-filter-rating-min')?.value);
+            const ratingMax = parseFloat(document.getElementById('watched-filter-rating-max')?.value);
+            const sortBy = document.getElementById('watched-filter-sort')?.value || 'year-desc';
+
+            let movies = movieData.watched.filter(movie => {
+                if (genre && !(movie.genreNames || []).includes(genre)) return false;
+                if (!isNaN(ratingMin) && (movie.clusterRating ?? -1) < ratingMin) return false;
+                if (!isNaN(ratingMax) && (movie.clusterRating ?? 999) > ratingMax) return false;
+                return true;
+            });
+
+            const sorters = {
+                'year-desc': (a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0),
+                'year-asc': (a, b) => (parseInt(a.year, 10) || 0) - (parseInt(b.year, 10) || 0),
+                'rating-desc': (a, b) => (b.clusterRating || 0) - (a.clusterRating || 0),
+                'rating-asc': (a, b) => (a.clusterRating || 0) - (b.clusterRating || 0),
+                'title-asc': (a, b) => a.title.localeCompare(b.title),
+            };
+            movies = [...movies].sort(sorters[sortBy] || sorters['year-desc']);
+            return movies;
+        }
+
+        async function renderWatchedGrid() {
             const grid = document.getElementById('watched-grid');
             const count = document.getElementById('watched-count');
-            const movies = movieData.watched;
+            const status = document.getElementById('watched-filter-status');
+            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'decade';
 
-            count.textContent = movies.length;
+            count.textContent = movieData.watched.length;
 
-            if (movies.length === 0) {
+            if (movieData.watched.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-state">
                         <div>📽️</div>
@@ -1238,23 +1316,59 @@
                 return;
             }
 
-            const groups = {}; // "1990s" -> [movies]
+            populateWatchedGenreFilter();
+
+            // Genre and rating filtering need enrichment data - fetch it (once
+            // per movie, ever) before filtering/grouping by either.
+            if (groupBy === 'genre' || document.getElementById('watched-filter-genre')?.value ||
+                document.getElementById('watched-filter-rating-min')?.value || document.getElementById('watched-filter-rating-max')?.value) {
+                const missing = movieData.watched.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
+                if (missing > 0) {
+                    status.style.display = 'block';
+                    status.textContent = `Loading genre/rating data for ${missing} movie(s) - one-time, cached after this...`;
+                    await ensureWatchedRatings(movieData.watched, (done, total) => {
+                        status.textContent = `Loading genre/rating data... ${done} / ${total}`;
+                    });
+                }
+                status.style.display = 'none';
+            }
+
+            const movies = getFilteredSortedWatchedMovies();
+
+            if (movies.length === 0) {
+                grid.innerHTML = `<div class="empty-state"><div>🔍</div><div>No watched titles match these filters.</div></div>`;
+                return;
+            }
+
+            if (groupBy === 'none') {
+                grid.innerHTML = movies.map(movie => buildMovieCardHtml(movie, 'watched')).join('');
+                return;
+            }
+
+            const groups = {};
             movies.forEach(movie => {
+                let label;
+                if (groupBy === 'genre') {
+                    const genres = movie.genreNames && movie.genreNames.length ? movie.genreNames : ['Unknown'];
+                    genres.forEach(g => {
+                        if (!groups[g]) groups[g] = [];
+                        groups[g].push(movie);
+                    });
+                    return;
+                }
                 const yearNum = parseInt(movie.year, 10);
-                const label = !isNaN(yearNum) ? `${Math.floor(yearNum / 10) * 10}s` : 'Unknown';
+                label = !isNaN(yearNum) ? `${Math.floor(yearNum / 10) * 10}s` : 'Unknown';
                 if (!groups[label]) groups[label] = [];
                 groups[label].push(movie);
             });
 
-            const decadeLabels = Object.keys(groups)
-                .filter(l => l !== 'Unknown')
-                .sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
-            if (groups['Unknown']) decadeLabels.push('Unknown');
+            let labels = Object.keys(groups).filter(l => l !== 'Unknown');
+            labels.sort(groupBy === 'genre' ? (a, b) => groups[b].length - groups[a].length : (a, b) => parseInt(b, 10) - parseInt(a, 10));
+            if (groups['Unknown']) labels.push('Unknown');
 
-            grid.innerHTML = decadeLabels.map(label => {
-                const sorted = [...groups[label]].sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0));
-                const header = `<div class="decade-header">${label}<span class="decade-count">${sorted.length}</span></div>`;
-                const cards = sorted.map(movie => buildMovieCardHtml(movie, 'watched')).join('');
+            grid.innerHTML = labels.map(label => {
+                const header = `<div class="decade-header">${label}<span class="decade-count">${groups[label].length}</span></div>`;
+                const cards = groups[label].map(movie => buildMovieCardHtml(movie, 'watched')).join('');
                 return header + cards;
             }).join('');
         }
@@ -1266,36 +1380,47 @@
         // overlap. Ratings are fetched once per movie (matched by title+year)
         // and cached onto the movie object itself, so this is a one-time cost.
 
-        async function fetchTmdbRatingForMovie(movie) {
+        // TMDB genre id -> name, used to enrich watched movies for filtering.
+        const WATCHED_GENRE_MAP = { 28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History', 27:'Horror', 10402:'Music', 9648:'Mystery', 10749:'Romance', 878:'Sci-Fi', 10770:'TV Movie', 53:'Thriller', 10752:'War', 37:'Western' };
+
+        async function fetchTmdbEnrichmentForMovie(movie) {
             try {
                 const query = encodeURIComponent(movie.title);
                 const yearParam = movie.year ? `&year=${encodeURIComponent(movie.year)}` : '';
                 const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}${yearParam}`);
                 const data = await res.json();
                 const match = data.results && data.results[0];
-                return match ? match.vote_average : null;
+                if (!match) return null;
+                return {
+                    rating: match.vote_average,
+                    genreNames: (match.genre_ids || []).map(id => WATCHED_GENRE_MAP[id]).filter(Boolean)
+                };
             } catch (error) {
-                console.error('Rating fetch failed for', movie.title, error);
+                console.error('Enrichment fetch failed for', movie.title, error);
                 return null;
             }
         }
 
-        // Ensures every watched movie has a cached rating (movie.clusterRating).
-        // Only fetches for movies missing one; persists the result via saveData()
-        // so this genuinely only happens once per movie, not on every visit.
+        // Ensures every watched movie has a cached rating (movie.clusterRating)
+        // and genre list (movie.genreNames), used by both the cluster view and
+        // the grid filter bar. Both come from the same TMDB search call, so
+        // adding genre here cost zero extra requests over the old rating-only
+        // version. Only fetches for movies missing either field; persists via
+        // saveData() so this genuinely only happens once per movie, ever.
         async function ensureWatchedRatings(movies, onProgress) {
-            const needsRating = movies.filter(m => m.clusterRating === undefined);
-            if (needsRating.length === 0) return;
+            const needsEnrichment = movies.filter(m => m.clusterRating === undefined || m.genreNames === undefined);
+            if (needsEnrichment.length === 0) return;
 
             let done = 0;
             const BATCH_SIZE = 6;
-            for (let i = 0; i < needsRating.length; i += BATCH_SIZE) {
-                const batch = needsRating.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < needsEnrichment.length; i += BATCH_SIZE) {
+                const batch = needsEnrichment.slice(i, i + BATCH_SIZE);
                 await Promise.all(batch.map(async movie => {
-                    const rating = await fetchTmdbRatingForMovie(movie);
-                    movie.clusterRating = rating || 5.0; // fallback so it still renders, just small
+                    const info = await fetchTmdbEnrichmentForMovie(movie);
+                    movie.clusterRating = movie.clusterRating !== undefined ? movie.clusterRating : (info?.rating || 5.0);
+                    movie.genreNames = movie.genreNames !== undefined ? movie.genreNames : (info?.genreNames || []);
                     done++;
-                    if (onProgress) onProgress(done, needsRating.length);
+                    if (onProgress) onProgress(done, needsEnrichment.length);
                 }));
             }
             saveData();
@@ -1607,7 +1732,7 @@
                 if (watchedViewMode === 'cluster') {
                     renderWatchedCluster();
                 } else {
-                    renderWatchedByDecade();
+                    renderWatchedGrid();
                 }
             }
         }
@@ -2516,6 +2641,14 @@
                     releaseDate: releaseDate || ''
                 };
 
+                if (movieAlreadyTracked(tmdbId, item.title, item.year)) {
+                    const proceed = confirm(`"${item.title}"${item.year ? ` (${item.year})` : ''} is already in one of your lists. Add it again anyway?`);
+                    if (!proceed) {
+                        if (cardEl) cardEl.style.opacity = '1';
+                        return;
+                    }
+                }
+
                 if (mediaType === 'tv') {
                     movieData.recommended.push(item);
                 } else {
@@ -2556,6 +2689,12 @@
                 imdbId: '',
                 releaseDate: ''
             };
+
+            if (movieAlreadyTracked(null, item.title, item.year)) {
+                const proceed = confirm(`"${item.title}"${item.year ? ` (${item.year})` : ''} is already in one of your lists. Add it again anyway?`);
+                if (!proceed) return;
+            }
+
             if (mediaType === 'tv') {
                 movieData.recommended.push(item);
             } else {
@@ -2618,7 +2757,7 @@
                     if (watchedViewMode === 'cluster') {
                         renderWatchedCluster();
                     } else {
-                        renderWatchedByDecade();
+                        renderWatchedGrid();
                     }
                 } else {
                     renderAll();
