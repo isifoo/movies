@@ -731,10 +731,11 @@
         </header>
 
         <div class="controls">
-            <button onclick="requireAuth(() => openAddTitleModal())">🎬 Add Title</button>
+            <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())">🎬 Add Title</button>
             <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recs</button>
             <button id="watched-nav-btn" onclick="showWatchedView()">✅ Watched</button>
             <button onclick="requireAuth(() => openMovieChat())" style="background: linear-gradient(135deg, #8E44AD 0%, #6C3483 100%);">💬 Movie Chat</button>
+            <button id="edit-lock-btn" onclick="toggleEditLock()">🔒 Unlock Editing</button>
         </div>
 
 
@@ -795,15 +796,17 @@
 
         <div id="watched-view" style="display: none;">
             <div class="controls" style="margin-bottom: 30px;">
-                <button onclick="showMainView()">← Back to Tracker</button>
-                <button id="watched-grid-mode-btn" onclick="setWatchedViewMode('grid')">▦ Grid</button>
-                <button id="watched-cluster-mode-btn" onclick="setWatchedViewMode('cluster')">⚪ Cluster</button>
+                <button onclick="showMainView()">🎬 Tracker</button>
             </div>
             <div class="category" id="watched-grid-mode">
                 <div class="category-header">
                     <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
                 </div>
                 <div id="watched-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
+                    <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
+                        <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
+                        <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
+                    </div>
                     <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
                         <button type="button" id="watched-layout-grid-btn" onclick="setWatchedLayoutMode('grid')" title="Thumbnail view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none;">▦</button>
                         <button type="button" id="watched-layout-list-btn" onclick="setWatchedLayoutMode('list')" title="List view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰</button>
@@ -832,7 +835,7 @@
                     <div style="flex-basis: 100%; height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0;"></div>
 
                     <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;"></div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    <div id="watched-genre-add-block" style="display: flex; gap: 6px; align-items: center;">
                         <input type="text" id="watched-genre-new-input" list="watched-genre-datalist" placeholder="Add a genre tag..." style="width: 150px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); requireAuth(addCustomGenre);}">
                         <datalist id="watched-genre-datalist"></datalist>
                         <button type="button" class="secondary" onclick="requireAuth(addCustomGenre)" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
@@ -845,6 +848,10 @@
                 <div class="category-header">
                     <h2>✅ Watched <span class="count" id="watched-cluster-count">0</span></h2>
                     <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
+                            <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
+                            <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
+                        </div>
                         <button onclick="clusterZoomBy(1.3)" title="Zoom in" style="padding: 8px 14px;">+</button>
                         <button onclick="clusterZoomBy(1/1.3)" title="Zoom out" style="padding: 8px 14px;">−</button>
                         <button onclick="clusterResetView()" title="Reset view" style="padding: 8px 14px; font-size: 0.85em;">⟲ Fit</button>
@@ -960,7 +967,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.5.0";
+        const APP_VERSION = "v22.6.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1022,7 +1029,8 @@
                 }));
                 document.getElementById('password-modal').style.display = 'none';
                 document.getElementById('password-error').style.display = 'none';
-                
+                refreshEditUI();
+
                 // Execute pending action
                 if (pendingAction) {
                     pendingAction();
@@ -1039,6 +1047,39 @@
             document.getElementById('password-modal').style.display = 'none';
             document.getElementById('password-error').style.display = 'none';
             pendingAction = null;
+        }
+
+        // Editing controls (add/delete/mark-watched/genre tags) are hidden
+        // entirely while logged out, not just blocked on click - so there's
+        // nothing to accidentally poke at. This button is the one thing that
+        // must always stay visible, since it's the only way to unlock them.
+        function toggleEditLock() {
+            if (isAuthenticated()) {
+                localStorage.removeItem(AUTH_STORAGE_KEY);
+                refreshEditUI();
+            } else {
+                requireAuth(() => {});
+            }
+        }
+
+        // Re-renders everything whose markup depends on login state, so
+        // edit controls appear/disappear immediately on login/logout instead
+        // of only after the next unrelated re-render.
+        function refreshEditUI() {
+            const authed = isAuthenticated();
+            const addTitleBtn = document.getElementById('add-title-nav-btn');
+            if (addTitleBtn) addTitleBtn.style.display = authed ? '' : 'none';
+            const lockBtn = document.getElementById('edit-lock-btn');
+            if (lockBtn) lockBtn.textContent = authed ? '🔓 Editing Unlocked' : '🔒 Unlock Editing';
+
+            renderAll();
+            if (document.getElementById('watched-view').style.display !== 'none') {
+                if (watchedViewMode === 'cluster') {
+                    renderGenreChips();
+                } else {
+                    renderWatchedGrid();
+                }
+            }
         }
 
         // Handle Enter key in password input
@@ -1245,8 +1286,8 @@
             
             // Check if any movies in Coming Soon have been released
             checkAndMoveReleasedMovies();
-            
-            renderAll();
+
+            refreshEditUI();
             renderQuickPickInitial();
             loadForYouInitial(); // reads cached picks only - never calls Claude on page load
         }
@@ -1316,26 +1357,25 @@
             renderWatchedGrid();
         }
 
+        // Grid/Cluster switcher buttons appear in two places (the grid pane's
+        // filter bar and the cluster pane's own header, so it's reachable no
+        // matter which pane is showing) - toggled by class, not id.
         function setWatchedViewMode(mode) {
             watchedViewMode = mode;
             localStorage.setItem('watchedViewMode', mode);
 
-            const gridBtn = document.getElementById('watched-grid-mode-btn');
-            const clusterBtn = document.getElementById('watched-cluster-mode-btn');
             const gridPane = document.getElementById('watched-grid-mode');
             const clusterPane = document.getElementById('watched-cluster-mode');
+            document.querySelectorAll('.view-mode-grid-btn').forEach(b => b.classList.toggle('secondary', mode === 'grid'));
+            document.querySelectorAll('.view-mode-cluster-btn').forEach(b => b.classList.toggle('secondary', mode === 'cluster'));
 
             if (mode === 'cluster') {
                 gridPane.style.display = 'none';
                 clusterPane.style.display = 'block';
-                gridBtn.classList.remove('secondary');
-                clusterBtn.classList.add('secondary');
                 renderWatchedCluster();
             } else {
                 clusterPane.style.display = 'none';
                 gridPane.style.display = 'block';
-                clusterBtn.classList.remove('secondary');
-                gridBtn.classList.add('secondary');
             }
         }
 
@@ -1354,16 +1394,17 @@
                         <div class="movie-info-title">
                             <span class="movie-title">${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}</span>
                         </div>
+                        ${isAuthenticated() ? `
                         <div class="movie-info-actions">
-                            ${category === 'wantToWatch' || category === 'recommended' ? 
+                            ${category === 'wantToWatch' || category === 'recommended' ?
                                 `<button onclick="requireAuth(() => markAsWatched('${category}', ${movie.id}))" title="Mark as Watched">👁</button>
-                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` : 
+                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` :
                               category === 'watched' ?
                                 `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
                                 `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
                             }
                             <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
-                        </div>
+                        </div>` : ''}
                     </div>
                 </div>
             `;
@@ -1387,10 +1428,11 @@
                         ${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}
                     </div>
                     <div class="movie-list-meta">${[ratingText, genreText].filter(Boolean).join(' · ')}</div>
+                    ${isAuthenticated() ? `
                     <div class="movie-list-actions" onclick="event.stopPropagation();">
                         <button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>
                         <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
-                    </div>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1410,14 +1452,19 @@
             const container = document.getElementById('watched-genre-chips');
             if (!container) return;
             const genres = movieData.customGenres || [];
+            const authed = isAuthenticated();
 
             const datalist = document.getElementById('watched-genre-datalist');
             if (datalist) {
                 datalist.innerHTML = getValidWatchedGenres().map(g => `<option value="${escapeHtml(g)}"></option>`).join('');
             }
 
+            const addBlock = document.getElementById('watched-genre-add-block');
+            if (addBlock) addBlock.style.display = authed ? 'flex' : 'none';
+
             if (genres.length === 0) {
-                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">No genre tags yet - add one on the right.</span>`;
+                const msg = authed ? 'No genre tags yet - add one on the right.' : 'No genre tags yet.';
+                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">${msg}</span>`;
                 return;
             }
 
@@ -1427,10 +1474,10 @@
                 const active = activeGenreFilters.has(genre);
                 return `
                     <span style="position: relative; display: inline-block;">
-                        <button type="button" onclick="toggleGenreFilter('${jsSafe}')" style="padding: 6px 24px 6px 14px; border-radius: 980px; font-size: 0.8em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                        <button type="button" onclick="toggleGenreFilter('${jsSafe}')" style="padding: 6px ${authed ? '24px' : '14px'} 6px 14px; border-radius: 980px; font-size: 0.8em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
                             ${safe}
                         </button>
-                        <span onclick="requireAuth(() => removeCustomGenre('${jsSafe}'))" title="Remove this tag" style="position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(20,20,20,0.9); border: 1px solid rgba(255,255,255,0.25); color: #f5f5f7; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;">✕</span>
+                        ${authed ? `<span onclick="requireAuth(() => removeCustomGenre('${jsSafe}'))" title="Remove this tag" style="position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(20,20,20,0.9); border: 1px solid rgba(255,255,255,0.25); color: #f5f5f7; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;">✕</span>` : ''}
                     </span>
                 `;
             }).join('');
@@ -2246,11 +2293,12 @@
                         <div class="movie-info-title">
                             <span class="movie-title">${safeTitle}${year ? ` <span class="movie-year">(${year})</span>` : ''}</span>
                         </div>
+                        ${isAuthenticated() ? `
                         <div class="movie-info-actions">
                             <button onclick="requireAuth(() => addQuickPickToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
                             <button class="quick-pick-watch" onclick="requireAuth(() => addQuickPickToWatched(${movie.id}))" title="Mark as Watched">👁</button>
                             <button onclick="requireAuth(() => hideQuickPickForever(${movie.id}))" title="Don't show again">✕</button>
-                        </div>
+                        </div>` : ''}
                     </div>
                 </div>
             `;
@@ -2644,11 +2692,12 @@
                             <div class="movie-info-title">
                                 <span class="movie-title">${safeTitle}${year ? ` <span class="movie-year">(${year})</span>` : ''}</span>
                             </div>
+                            ${isAuthenticated() ? `
                             <div class="movie-info-actions">
                                 <button onclick="requireAuth(() => addForYouToWantToWatch(${movie.id}))" title="Want to Watch">🎯</button>
                                 <button onclick="requireAuth(() => addForYouToWatched(${movie.id}))" title="Mark as Watched">👁</button>
                                 <button onclick="requireAuth(() => hideForYouCard(${movie.id}))" title="Don't show again">✕</button>
-                            </div>
+                            </div>` : ''}
                         </div>
                     </div>
                 `;
@@ -2765,32 +2814,7 @@
                 return;
             }
 
-            grid.innerHTML = movies.map(movie => {
-                const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
-                const safeTitle = escapeHtml(movie.title);
-                
-                return `
-                <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
-                    <div class="movie-poster">
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
-                    </div>
-                    <div class="movie-info" onclick="event.stopPropagation();">
-                        <div class="movie-info-title">
-                            <span class="movie-title">${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}</span>
-                        </div>
-                        <div class="movie-info-actions">
-                            ${category === 'wantToWatch' || category === 'recommended' ? 
-                                `<button onclick="requireAuth(() => markAsWatched(\'${category}\', ${movie.id}))" title="Mark as Watched">👁</button>
-                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea(\'${category}\', ${movie.id}))" title="One Day">🤞</button>` : 
-                              category === 'watched' ?
-                                `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
-                                `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
-                            }
-                            <button onclick="requireAuth(() => deleteMovie(\'${category}\', ${movie.id}))" title="Delete">✕</button>
-                        </div>
-                    </div>
-                </div>
-            `}).join('');
+            grid.innerHTML = movies.map(movie => buildMovieCardHtml(movie, category)).join('');
         }
 
         // Unified Add Title modal (movies + TV)
