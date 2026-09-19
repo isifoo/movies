@@ -748,9 +748,6 @@
                         <option value="rating-asc">Sort: Rating low-high</option>
                         <option value="title-asc">Sort: Title A-Z</option>
                     </select>
-                    <select id="watched-filter-genre" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
-                        <option value="">All genres</option>
-                    </select>
                     <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                         Rating
                         <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
@@ -758,6 +755,13 @@
                         <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
                     </label>
                     <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em; white-space: nowrap;">Reset</button>
+                </div>
+                <div id="watched-genre-chips-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
+                    <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px;"></div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <input type="text" id="watched-genre-new-input" placeholder="Add a genre tag..." style="width: 150px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomGenre();}">
+                        <button type="button" class="secondary" onclick="addCustomGenre()" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
+                    </div>
                 </div>
                 <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
                 <div class="movie-grid" id="watched-grid"></div>
@@ -881,7 +885,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.2.1";
+        const APP_VERSION = "v22.3.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1024,7 +1028,8 @@
             wantToWatch: [],
             recommended: [],
             watched: [],
-            notMyCupOfTea: []
+            notMyCupOfTea: [],
+            customGenres: [] // user-managed genre tags for the Watched filter chips
         };
 
 
@@ -1096,6 +1101,9 @@
                     if (!movieData.notMyCupOfTea) {
                         movieData.notMyCupOfTea = [];
                     }
+                if (!movieData.customGenres) {
+                        movieData.customGenres = [];
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1111,6 +1119,9 @@
                         if (!movieData.notMyCupOfTea) {
                             movieData.notMyCupOfTea = [];
                         }
+                    if (!movieData.customGenres) {
+                            movieData.customGenres = [];
+                        }
                         if (!movieData.comingSoon) {
                             movieData.comingSoon = [];
                         }
@@ -1122,7 +1133,8 @@
                             comingSoon: [],
                             recommended: [],
                             watched: [],
-                            notMyCupOfTea: []
+                            notMyCupOfTea: [],
+                            customGenres: []
                         };
                         statusDiv.textContent = '👋 Welcome! Start by adding movies.';
                     }
@@ -1137,6 +1149,9 @@
                     if (!movieData.notMyCupOfTea) {
                         movieData.notMyCupOfTea = [];
                     }
+                if (!movieData.customGenres) {
+                        movieData.customGenres = [];
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1146,7 +1161,8 @@
                         comingSoon: [],
                         recommended: [],
                         watched: [],
-                        notMyCupOfTea: []
+                        notMyCupOfTea: [],
+                        customGenres: []
                     };
                 }
                 statusDiv.textContent = '⚠️ Using local data. Cloud sync unavailable.';
@@ -1270,24 +1286,77 @@
         // Populates the genre filter dropdown once, from the full set of
         // genre names TMDB can return - not from what's currently enriched,
         // so it doesn't change shape as enrichment finishes in the background.
-        function populateWatchedGenreFilter() {
-            const select = document.getElementById('watched-filter-genre');
-            if (!select || select.options.length > 1) return; // already populated
-            const names = [...new Set(Object.values(WATCHED_GENRE_MAP))].sort();
-            names.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                select.appendChild(opt);
-            });
+        // Custom genre filter tags - a user-managed list (movieData.customGenres,
+        // synced to Firebase like everything else) rendered as toggleable chips
+        // instead of a fixed dropdown, so Gerry can define his own shortlist
+        // instead of TMDB's full 19-genre taxonomy. Which chips are currently
+        // toggled ON is session-only state (activeGenreFilters), not persisted -
+        // the saved list is just which tags exist, not which are active.
+        let activeGenreFilters = new Set();
+
+        function renderGenreChips() {
+            const container = document.getElementById('watched-genre-chips');
+            if (!container) return;
+            const genres = movieData.customGenres || [];
+
+            if (genres.length === 0) {
+                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">No genre tags yet - add one on the right.</span>`;
+                return;
+            }
+
+            container.innerHTML = genres.map(genre => {
+                const safe = escapeHtml(genre);
+                const jsSafe = genre.replace(/'/g, "\\'");
+                const active = activeGenreFilters.has(genre);
+                return `
+                    <span style="position: relative; display: inline-block;">
+                        <button type="button" onclick="toggleGenreFilter('${jsSafe}')" style="padding: 6px 24px 6px 14px; border-radius: 980px; font-size: 0.8em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                            ${safe}
+                        </button>
+                        <span onclick="removeCustomGenre('${jsSafe}')" title="Remove this tag" style="position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(20,20,20,0.9); border: 1px solid rgba(255,255,255,0.25); color: #f5f5f7; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;">✕</span>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        function toggleGenreFilter(genre) {
+            if (activeGenreFilters.has(genre)) {
+                activeGenreFilters.delete(genre);
+            } else {
+                activeGenreFilters.add(genre);
+            }
+            renderGenreChips();
+            renderWatchedGrid();
+        }
+
+        function addCustomGenre() {
+            const input = document.getElementById('watched-genre-new-input');
+            const value = input.value.trim();
+            if (!value) return;
+            if (!movieData.customGenres) movieData.customGenres = [];
+            const alreadyExists = movieData.customGenres.some(g => g.toLowerCase() === value.toLowerCase());
+            input.value = '';
+            if (alreadyExists) return;
+            movieData.customGenres.push(value);
+            saveData();
+            renderGenreChips();
+        }
+
+        function removeCustomGenre(genre) {
+            movieData.customGenres = (movieData.customGenres || []).filter(g => g !== genre);
+            activeGenreFilters.delete(genre);
+            saveData();
+            renderGenreChips();
+            renderWatchedGrid();
         }
 
         function resetWatchedFilters() {
             document.getElementById('watched-filter-groupby').value = 'decade';
             document.getElementById('watched-filter-sort').value = 'year-desc';
-            document.getElementById('watched-filter-genre').value = '';
             document.getElementById('watched-filter-rating-min').value = '';
             document.getElementById('watched-filter-rating-max').value = '';
+            activeGenreFilters.clear();
+            renderGenreChips();
             renderWatchedGrid();
         }
 
@@ -1296,13 +1365,17 @@
         // later (e.g. a "hide already-had-a-note" checkbox) means adding one
         // more field here, not restructuring the render pipeline.
         function getFilteredSortedWatchedMovies() {
-            const genre = document.getElementById('watched-filter-genre')?.value || '';
             const ratingMin = parseFloat(document.getElementById('watched-filter-rating-min')?.value);
             const ratingMax = parseFloat(document.getElementById('watched-filter-rating-max')?.value);
             const sortBy = document.getElementById('watched-filter-sort')?.value || 'year-desc';
 
             let movies = movieData.watched.filter(movie => {
-                if (genre && !(movie.genreNames || []).includes(genre)) return false;
+                // Genre chips are OR'd together - matching any active tag is enough.
+                if (activeGenreFilters.size > 0) {
+                    const movieGenres = movie.genreNames || [];
+                    const matchesAny = [...activeGenreFilters].some(g => movieGenres.includes(g));
+                    if (!matchesAny) return false;
+                }
                 if (!isNaN(ratingMin) && (movie.clusterRating ?? -1) < ratingMin) return false;
                 if (!isNaN(ratingMax) && (movie.clusterRating ?? 999) > ratingMax) return false;
                 return true;
@@ -1319,7 +1392,17 @@
             return movies;
         }
 
+        // Guards against a real race: renderWatchedGrid is async (it may await
+        // an enrichment fetch), and re-fires on every keystroke in the rating
+        // inputs. Without this, a slow earlier call (e.g. triggered while
+        // enrichment was still needed) could resolve AFTER a faster later
+        // call and overwrite the grid with stale, wrong-looking results -
+        // this, not the filter logic itself, was the cause of "0-6 shows an
+        // 8-rated title": the filter math was already verified correct.
+        let watchedGridRenderToken = 0;
+
         async function renderWatchedGrid() {
+            const myRenderToken = ++watchedGridRenderToken;
             const grid = document.getElementById('watched-grid');
             const count = document.getElementById('watched-count');
             const status = document.getElementById('watched-filter-status');
@@ -1337,22 +1420,28 @@
                 return;
             }
 
-            populateWatchedGenreFilter();
+            renderGenreChips();
 
             // Genre and rating filtering need enrichment data - fetch it (once
             // per movie, ever) before filtering/grouping by either.
-            if (groupBy === 'genre' || document.getElementById('watched-filter-genre')?.value ||
+            if (groupBy === 'genre' || activeGenreFilters.size > 0 ||
                 document.getElementById('watched-filter-rating-min')?.value || document.getElementById('watched-filter-rating-max')?.value) {
                 const missing = movieData.watched.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
                 if (missing > 0) {
                     status.style.display = 'block';
                     status.textContent = `Loading genre/rating data for ${missing} movie(s) - one-time, cached after this...`;
                     await ensureWatchedRatings(movieData.watched, (done, total) => {
-                        status.textContent = `Loading genre/rating data... ${done} / ${total}`;
+                        if (myRenderToken === watchedGridRenderToken) {
+                            status.textContent = `Loading genre/rating data... ${done} / ${total}`;
+                        }
                     });
                 }
-                status.style.display = 'none';
+                if (myRenderToken === watchedGridRenderToken) status.style.display = 'none';
             }
+
+            // A newer render started while we were awaiting enrichment above -
+            // abandon this one instead of racing it to paint the grid.
+            if (myRenderToken !== watchedGridRenderToken) return;
 
             const movies = getFilteredSortedWatchedMovies();
 
