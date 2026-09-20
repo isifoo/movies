@@ -805,13 +805,13 @@
                         <button type="button" class="display-mode-btn" data-mode="cluster" onclick="setListDisplayMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
                         <button type="button" class="display-mode-btn" data-mode="details" onclick="setListDisplayMode('details')" title="Details view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰ Details</button>
                     </div>
-                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderListView()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
-                    <select id="watched-filter-groupby" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
+                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderCurrentDisplay()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
+                    <select id="watched-filter-groupby" onchange="renderCurrentDisplay()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="none" selected>No grouping</option>
                         <option value="decade">Group: Decade</option>
                         <option value="genre">Group: Genre</option>
                     </select>
-                    <select id="watched-filter-sort" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
+                    <select id="watched-filter-sort" onchange="renderCurrentDisplay()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="year-desc">Sort: Newest first</option>
                         <option value="year-asc">Sort: Oldest first</option>
                         <option value="rating-desc">Sort: Rating high-low</option>
@@ -820,9 +820,9 @@
                     </select>
                     <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                         Rating
-                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderListView()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderCurrentDisplay()">
                         to
-                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderListView()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderCurrentDisplay()">
                     </label>
                     <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em; white-space: nowrap;">Reset</button>
 
@@ -992,7 +992,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.3.0";
+        const APP_VERSION = "v23.3.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1106,11 +1106,7 @@
             }
 
             if (document.getElementById('list-view').style.display !== 'none') {
-                if (watchedViewMode === 'cluster') {
-                    renderGenreChips();
-                } else {
-                    renderListView();
-                }
+                renderCurrentDisplay();
             }
         }
 
@@ -1375,12 +1371,24 @@
         // Quick Pick is intentionally NOT reshuffled here - it only changes when
         // you click Refresh (full reshuffle) or action a tile (that tile swaps).
         // Otherwise adding/editing something elsewhere would wipe your current picks.
+        // Whatever's actually on screen - Grid/Details or Cluster - needs to
+        // be the one that redraws when a filter changes. Every filter control
+        // (search, genre chips, rating, reset, etc.) goes through this
+        // instead of calling renderListView() directly, since renderListView
+        // only ever touches the (possibly hidden) grid pane.
+        function renderCurrentDisplay() {
+            if (watchedViewMode === 'cluster') {
+                return renderWatchedCluster();
+            }
+            return renderListView();
+        }
+
         function renderAll() {
-            renderListView();
+            renderCurrentDisplay();
         }
 
         function renderWatchedGrid() {
-            return renderListView();
+            return renderCurrentDisplay();
         }
 
         // Toggle between the main categories and the Watched view, in the
@@ -1602,7 +1610,7 @@
             } else {
                 activeGroups.add(group);
             }
-            renderListView();
+            renderCurrentDisplay();
         }
 
         // The chip row is collapsed by default and only appears while
@@ -1718,7 +1726,7 @@
                 activeGenreFilters.add(genre);
             }
             renderGenreChips();
-            renderListView();
+            renderCurrentDisplay();
         }
 
         // Every genre chip must be a name TMDB actually tags titles with -
@@ -1755,7 +1763,7 @@
             saveData();
             renderGenreChips();
             renderGenreAdminChips();
-            renderListView();
+            renderCurrentDisplay();
         }
 
         function resetWatchedFilters() {
@@ -1766,7 +1774,7 @@
             document.getElementById('watched-filter-search').value = '';
             activeGenreFilters.clear();
             renderGenreChips();
-            renderListView();
+            renderCurrentDisplay();
         }
 
         // Admin: list labels are just display strings (movieData.listLabels),
