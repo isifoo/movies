@@ -193,6 +193,34 @@
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
         }
 
+        /* Solar-system cluster layout: rings are static, .orbit-planet-pivot
+           gets its transform driven every frame by the orbit animation loop -
+           the hover scale below lives on the CHILD .cluster-bubble instead,
+           so the two transforms never fight over the same element. */
+        .orbit-ring {
+            position: absolute;
+            border: 1px dashed rgba(255, 255, 255, 0.12);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .cluster-sun {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            margin: -13px 0 0 -13px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fff6d5, #ffcf6b 40%, #ff9f2e 75%, #ff7a1a 100%);
+            box-shadow: 0 0 40px 10px rgba(255, 170, 60, 0.45), 0 0 80px 20px rgba(255, 140, 40, 0.18);
+            pointer-events: none;
+        }
+
+        .orbit-planet-pivot {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+
         .cluster-bubble:hover {
             transform: scale(1.08);
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
@@ -992,7 +1020,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.3.1";
+        const APP_VERSION = "v23.4.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1440,6 +1468,7 @@
             } else {
                 clusterPane.style.display = 'none';
                 gridPane.style.display = 'block';
+                stopClusterOrbitAnimation();
             }
             updateDisplayModeButtons();
         }
@@ -2096,68 +2125,6 @@
             saveData();
         }
 
-        // Circle-packing: places circles from largest to smallest, each as close
-        // to the center as possible without overlapping any already-placed circle.
-        // Classic spiral-search approach - simple, no external library needed.
-        // Gravity-style layout: every circle is pulled toward the center with a
-        // force proportional to its rating (so highest-rated movies settle at
-        // the middle, like a sun), while overlapping circles push each other
-        // apart. A short relaxation simulation settles this into a tightly
-        // packed, roughly circular cluster - the Ishihara-dot look.
-        function packCircles(items) {
-            // items: [{ radius, movie, pull }], pull in 0..1 (1 = strongest pull to center)
-            const n = items.length;
-
-            // Start each circle at a random angle, at a distance from center that's
-            // inversely related to its pull (high pull -> starts closer in already)
-            const nodes = items.map((item, i) => {
-                const startDist = (1 - item.pull) * (item.radius * 6 + Math.sqrt(n) * 8) + item.radius;
-                const angle = Math.random() * Math.PI * 2;
-                return {
-                    ...item,
-                    x: Math.cos(angle) * startDist,
-                    y: Math.sin(angle) * startDist
-                };
-            });
-
-            const ITERATIONS = 260;
-            const CENTER_STRENGTH = 1.1; // base inward pull multiplier
-            const REPEL_STRENGTH = 1.0;  // how firmly overlaps get resolved
-
-            for (let iter = 0; iter < ITERATIONS; iter++) {
-                // Inward pull toward the center, scaled by each circle's own rating-based pull
-                nodes.forEach(node => {
-                    const dist = Math.sqrt(node.x * node.x + node.y * node.y) || 0.001;
-                    const pullForce = CENTER_STRENGTH * node.pull;
-                    node.x -= (node.x / dist) * pullForce;
-                    node.y -= (node.y / dist) * pullForce;
-                });
-
-                // Repulsion: push apart any two circles that overlap
-                for (let i = 0; i < n; i++) {
-                    for (let j = i + 1; j < n; j++) {
-                        const a = nodes[i], b = nodes[j];
-                        const dx = b.x - a.x;
-                        const dy = b.y - a.y;
-                        let dist = Math.sqrt(dx * dx + dy * dy);
-                        const minDist = a.radius + b.radius + 1; // +1px breathing room
-                        if (dist < minDist) {
-                            if (dist < 0.001) { dist = 0.001; }
-                            const overlap = (minDist - dist) * 0.5 * REPEL_STRENGTH;
-                            const nx = dx / dist;
-                            const ny = dy / dist;
-                            a.x -= nx * overlap;
-                            a.y -= ny * overlap;
-                            b.x += nx * overlap;
-                            b.y += ny * overlap;
-                        }
-                    }
-                }
-            }
-
-            return nodes;
-        }
-
         let clusterContextMenuEl = null;
 
         function closeClusterContextMenu() {
@@ -2313,6 +2280,45 @@
             viewport.addEventListener('touchend', () => { touchStart = null; });
         }
 
+        // A 2D solar system: three fixed orbit rings by rating band, each
+        // rotating at its own speed (inner rings faster, like real planets
+        // closer to a sun). Capped at 100 titles - a random sample when the
+        // filtered set is bigger, so a huge list (e.g. all of Watched) still
+        // feels representative instead of biased toward sort order.
+        const CLUSTER_MAX_PLANETS = 100;
+        const CLUSTER_PLANET_SIZE = 34;
+        const CLUSTER_BANDS = [
+            { key: 'inner', test: r => r >= 8, radius: 110, speed: 0.35 },
+            { key: 'mid', test: r => r >= 7 && r < 8, radius: 210, speed: 0.18 },
+            { key: 'outer', test: r => r < 7, radius: 310, speed: 0.09 },
+        ];
+
+        let clusterOrbitRAF = null;
+
+        function stopClusterOrbitAnimation() {
+            if (clusterOrbitRAF) {
+                cancelAnimationFrame(clusterOrbitRAF);
+                clusterOrbitRAF = null;
+            }
+        }
+
+        function startClusterOrbitAnimation() {
+            stopClusterOrbitAnimation();
+            const pivots = document.querySelectorAll('.orbit-planet-pivot');
+            if (pivots.length === 0) return;
+            const startTime = performance.now();
+            function tick(now) {
+                const elapsed = (now - startTime) / 1000;
+                pivots.forEach(el => {
+                    const angle = parseFloat(el.dataset.angle0) + parseFloat(el.dataset.speed) * elapsed;
+                    const radius = parseFloat(el.dataset.radius);
+                    el.style.transform = `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px)`;
+                });
+                clusterOrbitRAF = requestAnimationFrame(tick);
+            }
+            clusterOrbitRAF = requestAnimationFrame(tick);
+        }
+
         async function renderWatchedCluster() {
             const container = document.getElementById('watched-cluster-container');
             const status = document.getElementById('watched-cluster-status');
@@ -2322,89 +2328,87 @@
 
             // Shared with renderListView, so switching to Cluster never drops
             // the active search/genre/rating filters - Cluster always needs
-            // ratings for bubble sizing, so enrichment runs unconditionally.
+            // ratings for band placement, so enrichment runs unconditionally.
             const realMovies = await ensureActiveGroupsEnriched(status, null, true);
 
             const countEl = document.getElementById('list-count');
             if (countEl) countEl.textContent = realMovies.length;
 
             if (realMovies.length === 0) {
+                stopClusterOrbitAnimation();
                 container.innerHTML = '';
                 status.style.display = 'block';
                 status.textContent = 'Nothing here yet.';
                 return;
             }
 
-            const movies = getFilteredSortedListMovies();
+            let movies = getFilteredSortedListMovies();
 
             if (movies.length === 0) {
+                stopClusterOrbitAnimation();
                 container.innerHTML = '';
                 status.style.display = 'block';
                 status.textContent = 'No titles match these filters.';
                 return;
             }
 
-            // Map rating (roughly 5-10 range in practice) to a circle radius in px.
-            // Lowest-rated movie is exactly 20% the size of the highest-rated one.
-            const maxR = 63;
-            const minR = maxR * 0.2;
-            const ratings = movies.map(m => m.clusterRating || 5);
-            const minRating = Math.min(...ratings);
-            const maxRating = Math.max(...ratings);
-            const ratingSpan = Math.max(0.01, maxRating - minRating);
+            if (movies.length > CLUSTER_MAX_PLANETS) {
+                const shuffled = [...movies];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                movies = shuffled.slice(0, CLUSTER_MAX_PLANETS);
+            }
 
-            const items = movies
-                .map(movie => {
-                    const rating = movie.clusterRating || 5;
-                    const t = (rating - minRating) / ratingSpan; // 0-1, 1 = highest rated
-                    const radius = minR + t * (maxR - minR);
-                    // Pull toward center scales sharply with rating (t^4), so the
-                    // gradient is actually readable at a glance: top-rated movies
-                    // sit unmistakably close to the center, and the falloff for
-                    // everything else is fast rather than a fuzzy gradual blend.
-                    const pull = Math.pow(t, 4);
-                    return { movie, radius, pull };
-                })
-                .sort((a, b) => b.radius - a.radius); // largest (highest rated) first, becomes the "sun"
+            status.style.display = 'none';
 
-            const packed = packCircles(items);
-
-            // Figure out the bounding box of the packed layout so we can size the world div
-            let minX = 0, maxX = 0, minY = 0, maxY = 0;
-            packed.forEach(p => {
-                minX = Math.min(minX, p.x - p.radius);
-                maxX = Math.max(maxX, p.x + p.radius);
-                minY = Math.min(minY, p.y - p.radius);
-                maxY = Math.max(maxY, p.y + p.radius);
+            const grouped = { inner: [], mid: [], outer: [] };
+            movies.forEach(movie => {
+                const rating = movie.clusterRating ?? 5;
+                const band = CLUSTER_BANDS.find(b => b.test(rating)) || CLUSTER_BANDS[CLUSTER_BANDS.length - 1];
+                grouped[band.key].push(movie);
             });
-            const padding = 40;
-            const layoutWidth = (maxX - minX) + padding * 2;
-            const layoutHeight = (maxY - minY) + padding * 2;
-            const offsetX = -minX + padding;
-            const offsetY = -minY + padding;
 
-            container.style.width = `${layoutWidth}px`;
-            container.style.height = `${layoutHeight}px`;
+            const outerRadius = CLUSTER_BANDS[CLUSTER_BANDS.length - 1].radius;
+            const layoutSize = (outerRadius + CLUSTER_PLANET_SIZE / 2 + 50) * 2;
+            const center = layoutSize / 2;
 
-            container.innerHTML = packed.map(p => {
-                const movie = p.movie;
-                const size = p.radius * 2;
-                const left = p.x + offsetX - p.radius;
-                const top = p.y + offsetY - p.radius;
-                const safeTitle = (movie.title || '').replace(/"/g, '&quot;');
+            container.style.width = `${layoutSize}px`;
+            container.style.height = `${layoutSize}px`;
 
-                return `
-                    <div class="cluster-bubble" style="width: ${size}px; height: ${size}px; left: ${left}px; top: ${top}px;">
-                        <div class="cluster-bubble-tooltip">${safeTitle}${movie.year ? ` (${movie.year})` : ''} · ⭐ ${(movie.clusterRating || 0).toFixed(1)}</div>
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
-                        <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, '${movie.category}', ${movie.id})">⋯</button>
-                    </div>
-                `;
-            }).join('');
+            let html = `<div class="cluster-sun" style="left: ${center}px; top: ${center}px;"></div>`;
 
-            clusterLayoutBounds = { width: layoutWidth, height: layoutHeight };
+            CLUSTER_BANDS.forEach(band => {
+                html += `<div class="orbit-ring" style="width: ${band.radius * 2}px; height: ${band.radius * 2}px; left: ${center - band.radius}px; top: ${center - band.radius}px;"></div>`;
+
+                const items = grouped[band.key];
+                const count = items.length;
+                items.forEach((movie, i) => {
+                    // Roughly evenly spaced around the ring, with a little random
+                    // jitter so it doesn't look robotically uniform.
+                    const jitter = count > 1 ? (Math.random() - 0.5) * (2 * Math.PI / count) * 0.6 : 0;
+                    const angle0 = (i / Math.max(1, count)) * Math.PI * 2 + jitter;
+                    const safeTitle = (movie.title || '').replace(/"/g, '&quot;');
+
+                    html += `
+                        <div class="orbit-planet-pivot" data-angle0="${angle0}" data-radius="${band.radius}" data-speed="${band.speed}" style="left: ${center}px; top: ${center}px;">
+                            <div class="cluster-bubble" style="width: ${CLUSTER_PLANET_SIZE}px; height: ${CLUSTER_PLANET_SIZE}px; left: ${-CLUSTER_PLANET_SIZE / 2}px; top: ${-CLUSTER_PLANET_SIZE / 2}px;">
+                                <div class="cluster-bubble-tooltip">${safeTitle}${movie.year ? ` (${movie.year})` : ''} · ⭐ ${(movie.clusterRating || 0).toFixed(1)}</div>
+                                ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
+                                <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, '${movie.category}', ${movie.id})">⋯</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            container.innerHTML = html;
+
+            clusterLayoutBounds = { width: layoutSize, height: layoutSize };
             setupClusterPanZoom();
             clusterResetView(); // start zoomed out to show the full overview
+            startClusterOrbitAnimation();
         }
 
         // Moves a movie out of Watched, back to whichever category it came from.
