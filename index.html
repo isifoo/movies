@@ -59,9 +59,35 @@
         .controls {
             display: flex;
             gap: 12px;
-            justify-content: center;
+            justify-content: flex-start;
             margin-bottom: 50px;
             flex-wrap: wrap;
+        }
+
+        /* Collapsed by default; openListNav() toggles the .open class, which
+           animates it open like a dropdown instead of an abrupt display flip. */
+        #group-chips-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 14px;
+            align-items: center;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            padding: 0 12px;
+            margin-bottom: 0;
+            transform: translateY(-6px);
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease, padding 0.35s ease, margin-bottom 0.35s ease, transform 0.3s ease;
+        }
+
+        #group-chips-bar.open {
+            max-height: 300px;
+            opacity: 1;
+            padding: 12px;
+            margin-bottom: 15px;
+            transform: translateY(0);
         }
 
         button {
@@ -762,21 +788,22 @@
 
         <div id="list-view">
 
-            <div class="category" id="list-grid-mode">
-                <div id="group-chips-bar" style="display: none; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;"></div>
+            <div class="category">
+                <div id="group-chips-bar"></div>
 
                 <div class="category-header">
                     <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
                 </div>
 
+                <!-- Filter bar is shared across Grid/Cluster/Details - switching
+                     the display mode never resets or hides search/genre/rating,
+                     so what you're looking at in Cluster is the same filtered
+                     set you'd see in Grid. -->
                 <div id="list-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
-                    <div id="list-cluster-toggle" style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
-                        <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
-                        <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
-                    </div>
                     <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
-                        <button type="button" id="watched-layout-grid-btn" onclick="setWatchedLayoutMode('grid')" title="Thumbnail view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none;">▦</button>
-                        <button type="button" id="watched-layout-list-btn" onclick="setWatchedLayoutMode('list')" title="List view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰</button>
+                        <button type="button" class="display-mode-btn" data-mode="grid" onclick="setListDisplayMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
+                        <button type="button" class="display-mode-btn" data-mode="cluster" onclick="setListDisplayMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
+                        <button type="button" class="display-mode-btn" data-mode="details" onclick="setListDisplayMode('details')" title="Details view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰ Details</button>
                     </div>
                     <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderListView()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
                     <select id="watched-filter-groupby" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
@@ -804,25 +831,21 @@
                     <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;"></div>
                 </div>
                 <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
-                <div class="movie-grid" id="watched-grid"></div>
-            </div>
 
-            <div class="category" id="watched-cluster-mode" style="display: none;">
-                <div class="category-header">
-                    <h2>✅ Watched <span class="count" id="watched-cluster-count">0</span></h2>
-                    <div style="display: flex; gap: 8px;">
-                        <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
-                            <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
-                            <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
-                        </div>
+                <div id="list-grid-mode">
+                    <div class="movie-grid" id="watched-grid"></div>
+                </div>
+
+                <div id="watched-cluster-mode" style="display: none;">
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px;">
                         <button onclick="clusterZoomBy(1.3)" title="Zoom in" style="padding: 8px 14px;">+</button>
                         <button onclick="clusterZoomBy(1/1.3)" title="Zoom out" style="padding: 8px 14px;">−</button>
                         <button onclick="clusterResetView()" title="Reset view" style="padding: 8px 14px; font-size: 0.85em;">⟲ Fit</button>
                     </div>
-                </div>
-                <div id="watched-cluster-status" style="text-align: center; color: rgba(245,245,247,0.5); padding: 20px; display: none;"></div>
-                <div id="watched-cluster-viewport" style="position: relative; width: 100%; height: 70vh; min-height: 400px; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%); border: 1px solid rgba(255,255,255,0.06); cursor: grab;">
-                    <div id="watched-cluster-container" style="position: absolute; top: 0; left: 0; transform-origin: 0 0;"></div>
+                    <div id="watched-cluster-status" style="text-align: center; color: rgba(245,245,247,0.5); padding: 20px; display: none;"></div>
+                    <div id="watched-cluster-viewport" style="position: relative; width: 100%; height: 70vh; min-height: 400px; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%); border: 1px solid rgba(255,255,255,0.06); cursor: grab;">
+                        <div id="watched-cluster-container" style="position: absolute; top: 0; left: 0; transform-origin: 0 0;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -969,7 +992,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.2.0";
+        const APP_VERSION = "v23.3.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1366,8 +1389,7 @@
             document.getElementById('admin-view').style.display = 'none';
             document.getElementById('list-view').style.display = 'block';
             setWatchedViewMode(watchedViewMode);
-            document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', watchedViewLayout === 'grid');
-            document.getElementById('watched-layout-list-btn').classList.toggle('secondary', watchedViewLayout === 'list');
+            updateDisplayModeButtons();
             if (watchedViewMode === 'grid') {
                 renderListView();
             }
@@ -1382,29 +1404,26 @@
             window.scrollTo(0, 0);
         }
 
-        // Grid vs Cluster mode for the List view - remembers the last choice
+        // Grid vs Cluster mode for the List view - remembers the last choice.
+        // watchedViewLayout ('grid' thumbnail cards vs 'list' rows) only
+        // matters while watchedViewMode is 'grid' - the two combine into the
+        // single Grid/Cluster/Details toggle the filter bar actually shows.
         let watchedViewMode = localStorage.getItem('watchedViewMode') || 'grid';
         let watchedViewLayout = localStorage.getItem('watchedViewLayout') || 'grid';
 
         function setWatchedLayoutMode(mode) {
             watchedViewLayout = mode;
             localStorage.setItem('watchedViewLayout', mode);
-            document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', mode === 'grid');
-            document.getElementById('watched-layout-list-btn').classList.toggle('secondary', mode === 'list');
+            updateDisplayModeButtons();
             renderListView();
         }
 
-        // Grid/Cluster switcher buttons appear in two places (the grid pane's
-        // filter bar and the cluster pane's own header, so it's reachable no
-        // matter which pane is showing) - toggled by class, not id.
         function setWatchedViewMode(mode) {
             watchedViewMode = mode;
             localStorage.setItem('watchedViewMode', mode);
 
             const gridPane = document.getElementById('list-grid-mode');
             const clusterPane = document.getElementById('watched-cluster-mode');
-            document.querySelectorAll('.view-mode-grid-btn').forEach(b => b.classList.toggle('secondary', mode === 'grid'));
-            document.querySelectorAll('.view-mode-cluster-btn').forEach(b => b.classList.toggle('secondary', mode === 'cluster'));
 
             if (mode === 'cluster') {
                 gridPane.style.display = 'none';
@@ -1414,6 +1433,33 @@
                 clusterPane.style.display = 'none';
                 gridPane.style.display = 'block';
             }
+            updateDisplayModeButtons();
+        }
+
+        // The single Grid | Cluster | Details control seen in the filter bar
+        // - maps onto the two underlying state variables above.
+        function setListDisplayMode(mode) {
+            if (mode === 'cluster') {
+                setWatchedViewMode('cluster');
+            } else if (mode === 'details') {
+                setWatchedViewMode('grid');
+                setWatchedLayoutMode('list');
+            } else {
+                setWatchedViewMode('grid');
+                setWatchedLayoutMode('grid');
+            }
+        }
+
+        function getListDisplayMode() {
+            if (watchedViewMode === 'cluster') return 'cluster';
+            return watchedViewLayout === 'list' ? 'details' : 'grid';
+        }
+
+        function updateDisplayModeButtons() {
+            const mode = getListDisplayMode();
+            document.querySelectorAll('.display-mode-btn').forEach(b => {
+                b.classList.toggle('secondary', b.dataset.mode === mode);
+            });
         }
 
         // Renders the Watched grid grouped by decade (newest first). Movies
@@ -1574,13 +1620,13 @@
                 groupChipsOpen = !groupChipsOpen;
             }
             const bar = document.getElementById('group-chips-bar');
-            if (bar) bar.style.display = groupChipsOpen ? 'flex' : 'none';
+            if (bar) bar.classList.toggle('open', groupChipsOpen);
         }
 
         function renderGroupChips() {
             const container = document.getElementById('group-chips-bar');
             if (!container) return;
-            container.style.display = groupChipsOpen ? 'flex' : 'none';
+            container.classList.toggle('open', groupChipsOpen);
             container.innerHTML = getAllGroups().map(group => {
                 const active = activeGroups.has(group);
                 const count = (movieData[group] || []).length;
@@ -1843,38 +1889,22 @@
         // 8-rated title": the filter math was already verified correct.
         let watchedGridRenderToken = 0;
 
-        async function renderListView() {
-            const myRenderToken = ++watchedGridRenderToken;
-            const grid = document.getElementById('watched-grid');
-            const status = document.getElementById('watched-filter-status');
-            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
-
-            renderGroupChips();
-            renderGenreChips();
-
-            // Enrichment (rating/genre) works on the REAL movie references
-            // from every active group, so results persist via saveData() -
-            // the filtered/sorted list below works off shallow copies instead.
+        // Shared by renderListView (Grid/Details) and renderWatchedCluster,
+        // so switching between them never re-derives, resets, or ignores the
+        // active search/genre/rating filters - they're all reading the same
+        // enriched pool. Returns the REAL movie references (not render-only
+        // tagged copies) from every active group; enrichment mutates those
+        // directly so it persists via saveData().
+        async function ensureActiveGroupsEnriched(statusEl, tokenCheck, forceAlways) {
             let realMovies = [];
             activeGroups.forEach(group => { realMovies = realMovies.concat(movieData[group] || []); });
+            if (realMovies.length === 0) return realMovies;
 
-            const countEl = document.getElementById('list-count');
-            if (countEl) countEl.textContent = realMovies.length;
+            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
+            const needsEnrichment = forceAlways || groupBy === 'genre' || activeGenreFilters.size > 0 ||
+                document.getElementById('watched-filter-rating-min')?.value || document.getElementById('watched-filter-rating-max')?.value;
 
-            if (realMovies.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div>📽️</div>
-                        <div>Nothing here yet.</div>
-                    </div>
-                `;
-                return;
-            }
-
-            // Genre and rating filtering need enrichment data - fetch it (once
-            // per movie, ever) before filtering/grouping by either.
-            if (groupBy === 'genre' || activeGenreFilters.size > 0 ||
-                document.getElementById('watched-filter-rating-min')?.value || document.getElementById('watched-filter-rating-max')?.value) {
+            if (needsEnrichment) {
                 // One-time migration: enrichment used to only ever query TMDB's
                 // movie search endpoint, so TV shows in this list got no genre
                 // match and silently fell back to a fake clusterRating of 5.0 -
@@ -1889,16 +1919,42 @@
                     }
                 });
                 const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
-                if (missing > 0) {
-                    status.style.display = 'block';
-                    status.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
+                if (missing > 0 && statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
                     await ensureWatchedRatings(realMovies, (done, total) => {
-                        if (myRenderToken === watchedGridRenderToken) {
-                            status.textContent = `Loading genre/rating data... ${done} / ${total}`;
+                        if (!tokenCheck || tokenCheck()) {
+                            statusEl.textContent = `Loading genre/rating data... ${done} / ${total}`;
                         }
                     });
                 }
-                if (myRenderToken === watchedGridRenderToken) status.style.display = 'none';
+                if (statusEl && (!tokenCheck || tokenCheck())) statusEl.style.display = 'none';
+            }
+            return realMovies;
+        }
+
+        async function renderListView() {
+            const myRenderToken = ++watchedGridRenderToken;
+            const grid = document.getElementById('watched-grid');
+            const status = document.getElementById('watched-filter-status');
+            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
+
+            renderGroupChips();
+            renderGenreChips();
+
+            const realMovies = await ensureActiveGroupsEnriched(status, () => myRenderToken === watchedGridRenderToken, false);
+
+            const countEl = document.getElementById('list-count');
+            if (countEl) countEl.textContent = realMovies.length;
+
+            if (realMovies.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div>📽️</div>
+                        <div>Nothing here yet.</div>
+                    </div>
+                `;
+                return;
             }
 
             // A newer render started while we were awaiting enrichment above -
@@ -2252,14 +2308,17 @@
         async function renderWatchedCluster() {
             const container = document.getElementById('watched-cluster-container');
             const status = document.getElementById('watched-cluster-status');
-            const count = document.getElementById('watched-cluster-count');
 
-            // Enrichment mutates the REAL movie objects (so it persists via
-            // saveData()) before the tagged, render-only copies get built below.
-            let realMovies = [];
-            activeGroups.forEach(group => { realMovies = realMovies.concat(movieData[group] || []); });
+            renderGroupChips();
+            renderGenreChips();
 
-            count.textContent = realMovies.length;
+            // Shared with renderListView, so switching to Cluster never drops
+            // the active search/genre/rating filters - Cluster always needs
+            // ratings for bubble sizing, so enrichment runs unconditionally.
+            const realMovies = await ensureActiveGroupsEnriched(status, null, true);
+
+            const countEl = document.getElementById('list-count');
+            if (countEl) countEl.textContent = realMovies.length;
 
             if (realMovies.length === 0) {
                 container.innerHTML = '';
@@ -2268,22 +2327,14 @@
                 return;
             }
 
-            status.style.display = 'block';
-            status.textContent = `Loading ratings... 0 / ${realMovies.filter(m => m.clusterRating === undefined).length || realMovies.length}`;
+            const movies = getFilteredSortedListMovies();
 
-            await ensureWatchedRatings(realMovies, (done, total) => {
-                status.textContent = `Loading ratings... ${done} / ${total}`;
-            });
-
-            status.style.display = 'none';
-
-            // Render-only tagged copies, built AFTER enrichment so they carry
-            // the fresh clusterRating/genreNames - never mutate the real
-            // movieData objects with a `category` field that would get saved.
-            const movies = [];
-            activeGroups.forEach(group => {
-                (movieData[group] || []).forEach(m => movies.push({ ...m, category: group }));
-            });
+            if (movies.length === 0) {
+                container.innerHTML = '';
+                status.style.display = 'block';
+                status.textContent = 'No titles match these filters.';
+                return;
+            }
 
             // Map rating (roughly 5-10 range in practice) to a circle radius in px.
             // Lowest-rated movie is exactly 20% the size of the highest-rated one.
