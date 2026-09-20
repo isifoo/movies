@@ -730,12 +730,15 @@
 
         </header>
 
+        <div id="login-corner" style="position: fixed; top: 14px; right: 18px; z-index: 50;">
+            <a href="#" id="login-link" onclick="event.preventDefault(); toggleEditLock();" style="font-size: 0.8em; color: rgba(245,245,247,0.55); text-decoration: underline; cursor: pointer;">Login</a>
+        </div>
+
         <div class="controls">
-            <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())">🎬 Add Title</button>
+            <button onclick="showListView()">📋 List</button>
             <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recs</button>
-            <button id="watched-nav-btn" onclick="showWatchedView()">✅ Watched</button>
             <button onclick="requireAuth(() => openMovieChat())" style="background: linear-gradient(135deg, #8E44AD 0%, #6C3483 100%);">💬 Movie Chat</button>
-            <button id="edit-lock-btn" onclick="toggleEditLock()">🔒 Unlock Editing</button>
+            <button id="admin-nav-btn" onclick="requireAuth(() => showAdminView())" style="display: none;">⚙️ Admin</button>
         </div>
 
 
@@ -755,55 +758,18 @@
             </div>
         </div>
 
-        <div id="main-view">
+        <div id="list-view">
 
-            <div class="category">
+            <div class="category" id="list-grid-mode">
                 <div class="category-header">
-                    <h2>🎯 Want to Watch <span class="count" id="want-count">0</span></h2>
+                    <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
+                    <button id="list-add-title-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none; padding: 8px 16px; font-size: 0.85em;">🎬 Add Title</button>
                 </div>
-                <div class="movie-grid" id="want-to-watch-grid"></div>
-            </div>
 
-            <div class="category">
-                <div class="category-header">
-                    <h2>🔜 Coming Soon <span class="count" id="coming-soon-count">0</span></h2>
-                </div>
-                <div class="movie-grid" id="coming-soon-grid"></div>
-            </div>
+                <div id="group-chips-bar" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;"></div>
 
-            <div class="category">
-                <div class="category-header">
-                    <h2>🤞 One Day <span class="count" id="not-my-cup-of-tea-count">0</span></h2>
-                </div>
-                <div class="movie-grid" id="not-my-cup-of-tea-grid"></div>
-            </div>
-
-            <div class="category">
-                <div class="category-header">
-                    <h2>📺 TV Shows <span class="count" id="recommended-count">0</span></h2>
-                </div>
-                <div class="movie-grid" id="recommended-grid"></div>
-            </div>
-
-            <div class="category">
-                <div class="category-header">
-                    <h2>🎲 Quick Pick <span class="count" id="quick-pick-count">0</span></h2>
-                    <button onclick="manualRefreshQuickPick()" title="Shuffle now" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
-                </div>
-                <div class="movie-grid" id="quick-pick-grid"></div>
-            </div>
-        </div>
-
-        <div id="watched-view" style="display: none;">
-            <div class="controls" style="margin-bottom: 30px;">
-                <button onclick="showMainView()">🎬 Tracker</button>
-            </div>
-            <div class="category" id="watched-grid-mode">
-                <div class="category-header">
-                    <h2>✅ Watched <span class="count" id="watched-count">0</span></h2>
-                </div>
-                <div id="watched-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
-                    <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
+                <div id="list-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
+                    <div id="list-cluster-toggle" style="display: none; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
                         <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
                         <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
                     </div>
@@ -811,13 +777,13 @@
                         <button type="button" id="watched-layout-grid-btn" onclick="setWatchedLayoutMode('grid')" title="Thumbnail view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none;">▦</button>
                         <button type="button" id="watched-layout-list-btn" onclick="setWatchedLayoutMode('list')" title="List view" style="width: auto; padding: 8px 10px; font-size: 0.95em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰</button>
                     </div>
-                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderWatchedGrid()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
-                    <select id="watched-filter-groupby" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
+                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderListView()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
+                    <select id="watched-filter-groupby" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="decade">Group: Decade</option>
                         <option value="genre">Group: Genre</option>
                         <option value="none">No grouping</option>
                     </select>
-                    <select id="watched-filter-sort" onchange="renderWatchedGrid()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
+                    <select id="watched-filter-sort" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="year-desc">Sort: Newest first</option>
                         <option value="year-asc">Sort: Oldest first</option>
                         <option value="rating-desc">Sort: Rating high-low</option>
@@ -826,24 +792,20 @@
                     </select>
                     <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                         Rating
-                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderListView()">
                         to
-                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderWatchedGrid()">
+                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderListView()">
                     </label>
                     <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em; white-space: nowrap;">Reset</button>
 
                     <div style="flex-basis: 100%; height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0;"></div>
 
                     <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;"></div>
-                    <div id="watched-genre-add-block" style="display: flex; gap: 6px; align-items: center;">
-                        <input type="text" id="watched-genre-new-input" list="watched-genre-datalist" placeholder="Add a genre tag..." style="width: 150px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); requireAuth(addCustomGenre);}">
-                        <datalist id="watched-genre-datalist"></datalist>
-                        <button type="button" class="secondary" onclick="requireAuth(addCustomGenre)" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
-                    </div>
                 </div>
                 <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
                 <div class="movie-grid" id="watched-grid"></div>
             </div>
+
             <div class="category" id="watched-cluster-mode" style="display: none;">
                 <div class="category-header">
                     <h2>✅ Watched <span class="count" id="watched-cluster-count">0</span></h2>
@@ -860,6 +822,36 @@
                 <div id="watched-cluster-status" style="text-align: center; color: rgba(245,245,247,0.5); padding: 20px; display: none;"></div>
                 <div id="watched-cluster-viewport" style="position: relative; width: 100%; height: 70vh; min-height: 400px; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%); border: 1px solid rgba(255,255,255,0.06); cursor: grab;">
                     <div id="watched-cluster-container" style="position: absolute; top: 0; left: 0; transform-origin: 0 0;"></div>
+                </div>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
+                    <h2>🎲 Quick Pick <span class="count" id="quick-pick-count">0</span></h2>
+                    <button onclick="manualRefreshQuickPick()" title="Shuffle now" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
+                </div>
+                <div class="movie-grid" id="quick-pick-grid"></div>
+            </div>
+        </div>
+
+        <div id="admin-view" style="display: none;">
+            <div class="controls" style="margin-bottom: 30px;">
+                <button onclick="showListView()">🎬 Tracker</button>
+            </div>
+            <div class="category">
+                <div class="category-header">
+                    <h2>⚙️ Admin</h2>
+                </div>
+                <h3 style="margin: 0 0 12px;">List names</h3>
+                <div id="admin-list-labels" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; max-width: 400px;"></div>
+                <button type="button" class="secondary" onclick="requireAuth(saveListLabels)" style="padding: 8px 16px; font-size: 0.85em; margin-bottom: 30px;">Save names</button>
+
+                <h3 style="margin: 0 0 12px;">Genre tags</h3>
+                <div id="admin-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 14px;"></div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <input type="text" id="watched-genre-new-input" list="watched-genre-datalist" placeholder="Add a genre tag..." style="width: 200px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); requireAuth(addCustomGenre);}">
+                    <datalist id="watched-genre-datalist"></datalist>
+                    <button type="button" class="secondary" onclick="requireAuth(addCustomGenre)" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
                 </div>
             </div>
         </div>
@@ -967,7 +959,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v22.6.0";
+        const APP_VERSION = "v23.0.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1067,17 +1059,24 @@
         // of only after the next unrelated re-render.
         function refreshEditUI() {
             const authed = isAuthenticated();
-            const addTitleBtn = document.getElementById('add-title-nav-btn');
+            const addTitleBtn = document.getElementById('list-add-title-btn');
             if (addTitleBtn) addTitleBtn.style.display = authed ? '' : 'none';
-            const lockBtn = document.getElementById('edit-lock-btn');
-            if (lockBtn) lockBtn.textContent = authed ? '🔓 Editing Unlocked' : '🔒 Unlock Editing';
+            const adminBtn = document.getElementById('admin-nav-btn');
+            if (adminBtn) adminBtn.style.display = authed ? '' : 'none';
+            const loginLink = document.getElementById('login-link');
+            if (loginLink) loginLink.textContent = authed ? 'Logout' : 'Login';
 
-            renderAll();
-            if (document.getElementById('watched-view').style.display !== 'none') {
+            // Logging out while Admin is open would leave an edit screen
+            // showing with nothing left to edit - send it back to the list.
+            if (!authed && document.getElementById('admin-view').style.display !== 'none') {
+                showListView();
+            }
+
+            if (document.getElementById('list-view').style.display !== 'none') {
                 if (watchedViewMode === 'cluster') {
                     renderGenreChips();
                 } else {
-                    renderWatchedGrid();
+                    renderListView();
                 }
             }
         }
@@ -1145,7 +1144,8 @@
             recommended: [],
             watched: [],
             notMyCupOfTea: [],
-            customGenres: [] // user-managed genre tags for the Watched filter chips
+            customGenres: [], // user-managed genre tags for the Watched filter chips
+            listLabels: {} // user-renameable display names for the 5 lists (Admin)
         };
 
 
@@ -1220,6 +1220,9 @@
                 if (!movieData.customGenres) {
                         movieData.customGenres = [];
                     }
+                    if (!movieData.listLabels) {
+                        movieData.listLabels = {};
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1238,6 +1241,9 @@
                     if (!movieData.customGenres) {
                             movieData.customGenres = [];
                         }
+                        if (!movieData.listLabels) {
+                            movieData.listLabels = {};
+                        }
                         if (!movieData.comingSoon) {
                             movieData.comingSoon = [];
                         }
@@ -1250,7 +1256,8 @@
                             recommended: [],
                             watched: [],
                             notMyCupOfTea: [],
-                            customGenres: []
+                            customGenres: [],
+                            listLabels: {}
                         };
                         statusDiv.textContent = '👋 Welcome! Start by adding movies.';
                     }
@@ -1268,6 +1275,9 @@
                 if (!movieData.customGenres) {
                         movieData.customGenres = [];
                     }
+                    if (!movieData.listLabels) {
+                        movieData.listLabels = {};
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1278,7 +1288,8 @@
                         recommended: [],
                         watched: [],
                         notMyCupOfTea: [],
-                        customGenres: []
+                        customGenres: [],
+                        listLabels: {}
                     };
                 }
                 statusDiv.textContent = '⚠️ Using local data. Cloud sync unavailable.';
@@ -1312,40 +1323,44 @@
             }
         }
 
-        // Render all categories
+        // All five lists now share one render path (renderListView) since
+        // they're just filtered views over the same unified List screen.
+        // Kept as thin aliases so every existing call site (add/delete/mark
+        // watched, etc.) keeps working unchanged.
+        // Quick Pick is intentionally NOT reshuffled here - it only changes when
+        // you click Refresh (full reshuffle) or action a tile (that tile swaps).
+        // Otherwise adding/editing something elsewhere would wipe your current picks.
         function renderAll() {
-            renderCategory('wantToWatch', 'want-to-watch-grid', 'want-count');
-            renderCategory('comingSoon', 'coming-soon-grid', 'coming-soon-count');
-            renderCategory('notMyCupOfTea', 'not-my-cup-of-tea-grid', 'not-my-cup-of-tea-count');
-            renderCategory('recommended', 'recommended-grid', 'recommended-count');
-            // Watched is rendered separately (renderWatchedGrid) only when its
-            // view is shown, so switching to it always reflects the latest data.
-            // Quick Pick is intentionally NOT reshuffled here - it only changes when
-            // you click Refresh (full reshuffle) or action a tile (that tile swaps).
-            // Otherwise adding/editing something elsewhere would wipe your current picks.
+            renderListView();
+        }
+
+        function renderWatchedGrid() {
+            return renderListView();
         }
 
         // Toggle between the main categories and the Watched view, in the
         // same page - no navigation, no reload.
-        function showWatchedView() {
-            document.getElementById('main-view').style.display = 'none';
-            document.getElementById('watched-view').style.display = 'block';
+        function showListView() {
+            document.getElementById('admin-view').style.display = 'none';
+            document.getElementById('list-view').style.display = 'block';
             setWatchedViewMode(watchedViewMode);
             document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', watchedViewLayout === 'grid');
             document.getElementById('watched-layout-list-btn').classList.toggle('secondary', watchedViewLayout === 'list');
             if (watchedViewMode === 'grid') {
-                renderWatchedGrid();
+                renderListView();
             }
             window.scrollTo(0, 0);
         }
 
-        function showMainView() {
-            document.getElementById('watched-view').style.display = 'none';
-            document.getElementById('main-view').style.display = 'block';
+        function showAdminView() {
+            document.getElementById('list-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            renderAdminListLabels();
+            renderGenreAdminChips();
             window.scrollTo(0, 0);
         }
 
-        // Grid vs Cluster mode for the Watched view - remembers the last choice
+        // Grid vs Cluster mode for the List view - remembers the last choice
         let watchedViewMode = localStorage.getItem('watchedViewMode') || 'grid';
         let watchedViewLayout = localStorage.getItem('watchedViewLayout') || 'grid';
 
@@ -1354,7 +1369,7 @@
             localStorage.setItem('watchedViewLayout', mode);
             document.getElementById('watched-layout-grid-btn').classList.toggle('secondary', mode === 'grid');
             document.getElementById('watched-layout-list-btn').classList.toggle('secondary', mode === 'list');
-            renderWatchedGrid();
+            renderListView();
         }
 
         // Grid/Cluster switcher buttons appear in two places (the grid pane's
@@ -1364,7 +1379,7 @@
             watchedViewMode = mode;
             localStorage.setItem('watchedViewMode', mode);
 
-            const gridPane = document.getElementById('watched-grid-mode');
+            const gridPane = document.getElementById('list-grid-mode');
             const clusterPane = document.getElementById('watched-cluster-mode');
             document.querySelectorAll('.view-mode-grid-btn').forEach(b => b.classList.toggle('secondary', mode === 'grid'));
             document.querySelectorAll('.view-mode-cluster-btn').forEach(b => b.classList.toggle('secondary', mode === 'cluster'));
@@ -1430,7 +1445,13 @@
                     <div class="movie-list-meta">${[ratingText, genreText].filter(Boolean).join(' · ')}</div>
                     ${isAuthenticated() ? `
                     <div class="movie-list-actions" onclick="event.stopPropagation();">
-                        <button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>
+                        ${category === 'wantToWatch' || category === 'recommended' ?
+                            `<button onclick="requireAuth(() => markAsWatched('${category}', ${movie.id}))" title="Mark as Watched">👁</button>
+                             <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` :
+                          category === 'watched' ?
+                            `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
+                            `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
+                        }
                         <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
                     </div>` : ''}
                 </div>
@@ -1448,23 +1469,77 @@
         // the saved list is just which tags exist, not which are active.
         let activeGenreFilters = new Set();
 
+        // The five real lists, unified into one browsable view. Group chips
+        // are multi-select (unlike genre chips, which are exclusive) - you
+        // can combine e.g. Want to Watch + TV Shows into one filtered pool.
+        // At least one group must stay active, so there's always something
+        // to show. Default: Want to Watch only.
+        const GROUP_ORDER = ['wantToWatch', 'comingSoon', 'notMyCupOfTea', 'recommended', 'watched'];
+        const GROUP_ICONS = { wantToWatch: '🎯', comingSoon: '🔜', notMyCupOfTea: '🤞', recommended: '📺', watched: '✅' };
+        const DEFAULT_LIST_LABELS = { wantToWatch: 'Want to Watch', comingSoon: 'Coming Soon', notMyCupOfTea: 'One Day', recommended: 'TV Shows', watched: 'Watched' };
+        let activeGroups = new Set(['wantToWatch']);
+
+        function getListLabel(group) {
+            return (movieData.listLabels && movieData.listLabels[group]) || DEFAULT_LIST_LABELS[group] || group;
+        }
+
+        function toggleGroupFilter(group) {
+            if (activeGroups.has(group)) {
+                if (activeGroups.size > 1) activeGroups.delete(group);
+            } else {
+                activeGroups.add(group);
+            }
+            renderListView();
+        }
+
+        function renderGroupChips() {
+            const container = document.getElementById('group-chips-bar');
+            if (!container) return;
+            container.innerHTML = GROUP_ORDER.map(group => {
+                const active = activeGroups.has(group);
+                const count = (movieData[group] || []).length;
+                const label = escapeHtml(getListLabel(group));
+                return `
+                    <button type="button" onclick="toggleGroupFilter('${group}')" style="padding: 8px 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                        ${GROUP_ICONS[group] || ''} ${label} <span style="opacity: 0.7;">${count}</span>
+                    </button>
+                `;
+            }).join('');
+
+            const title = document.getElementById('list-view-title');
+            if (title) {
+                const countEl = `<span class="count" id="list-count">0</span>`;
+                if (activeGroups.size === 1) {
+                    const only = [...activeGroups][0];
+                    title.innerHTML = `${GROUP_ICONS[only] || ''} ${escapeHtml(getListLabel(only))} ${countEl}`;
+                } else {
+                    const labels = [...activeGroups].map(g => getListLabel(g)).join(' + ');
+                    title.innerHTML = `📋 ${escapeHtml(labels)} ${countEl}`;
+                }
+            }
+
+            // Cluster view only makes sense for Watched alone (it's the only
+            // group with ratings baked in for it). Hide the toggle and force
+            // grid mode otherwise, rather than showing a cluster of mixed,
+            // mostly-unrated titles.
+            const clusterToggle = document.getElementById('list-cluster-toggle');
+            const clusterEligible = activeGroups.size === 1 && activeGroups.has('watched');
+            if (clusterToggle) clusterToggle.style.display = clusterEligible ? 'flex' : 'none';
+            if (!clusterEligible && watchedViewMode === 'cluster') {
+                setWatchedViewMode('grid');
+            }
+        }
+
+        // Toggle-only chips for the List view's filter bar - adding/removing
+        // tags is an Admin action now (renderGenreAdminChips), so these never
+        // show a remove control regardless of login state.
         function renderGenreChips() {
             const container = document.getElementById('watched-genre-chips');
             if (!container) return;
             const genres = movieData.customGenres || [];
-            const authed = isAuthenticated();
-
-            const datalist = document.getElementById('watched-genre-datalist');
-            if (datalist) {
-                datalist.innerHTML = getValidWatchedGenres().map(g => `<option value="${escapeHtml(g)}"></option>`).join('');
-            }
-
-            const addBlock = document.getElementById('watched-genre-add-block');
-            if (addBlock) addBlock.style.display = authed ? 'flex' : 'none';
 
             if (genres.length === 0) {
-                const msg = authed ? 'No genre tags yet - add one on the right.' : 'No genre tags yet.';
-                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">${msg}</span>`;
+                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">No genre tags yet - add some in Admin.</span>`;
                 return;
             }
 
@@ -1473,11 +1548,40 @@
                 const jsSafe = genre.replace(/'/g, "\\'");
                 const active = activeGenreFilters.has(genre);
                 return `
+                    <button type="button" onclick="toggleGenreFilter('${jsSafe}')" style="padding: 6px 14px; border-radius: 980px; font-size: 0.8em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                        ${safe}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // Admin's genre management - the add-input and each tag's remove ✕
+        // used to live in the List view's filter bar; that's an edit action,
+        // so it moved here alongside the other Admin controls.
+        function renderGenreAdminChips() {
+            const container = document.getElementById('admin-genre-chips');
+            if (!container) return;
+            const genres = movieData.customGenres || [];
+
+            const datalist = document.getElementById('watched-genre-datalist');
+            if (datalist) {
+                datalist.innerHTML = getValidWatchedGenres().map(g => `<option value="${escapeHtml(g)}"></option>`).join('');
+            }
+
+            if (genres.length === 0) {
+                container.innerHTML = `<span style="font-size: 0.8em; color: rgba(245,245,247,0.4);">No genre tags yet - add one below.</span>`;
+                return;
+            }
+
+            container.innerHTML = genres.map(genre => {
+                const safe = escapeHtml(genre);
+                const jsSafe = genre.replace(/'/g, "\\'");
+                return `
                     <span style="position: relative; display: inline-block;">
-                        <button type="button" onclick="toggleGenreFilter('${jsSafe}')" style="padding: 6px ${authed ? '24px' : '14px'} 6px 14px; border-radius: 980px; font-size: 0.8em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                        <span style="padding: 6px 24px 6px 14px; border-radius: 980px; font-size: 0.8em; display: inline-block; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #f5f5f7;">
                             ${safe}
-                        </button>
-                        ${authed ? `<span onclick="requireAuth(() => removeCustomGenre('${jsSafe}'))" title="Remove this tag" style="position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(20,20,20,0.9); border: 1px solid rgba(255,255,255,0.25); color: #f5f5f7; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;">✕</span>` : ''}
+                        </span>
+                        <span onclick="requireAuth(() => removeCustomGenre('${jsSafe}'))" title="Remove this tag" style="position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(20,20,20,0.9); border: 1px solid rgba(255,255,255,0.25); color: #f5f5f7; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;">✕</span>
                     </span>
                 `;
             }).join('');
@@ -1493,7 +1597,7 @@
                 activeGenreFilters.add(genre);
             }
             renderGenreChips();
-            renderWatchedGrid();
+            renderListView();
         }
 
         // Every genre chip must be a name TMDB actually tags titles with -
@@ -1521,6 +1625,7 @@
             movieData.customGenres.push(validMatch);
             saveData();
             renderGenreChips();
+            renderGenreAdminChips();
         }
 
         function removeCustomGenre(genre) {
@@ -1528,7 +1633,8 @@
             activeGenreFilters.delete(genre);
             saveData();
             renderGenreChips();
-            renderWatchedGrid();
+            renderGenreAdminChips();
+            renderListView();
         }
 
         function resetWatchedFilters() {
@@ -1539,20 +1645,53 @@
             document.getElementById('watched-filter-search').value = '';
             activeGenreFilters.clear();
             renderGenreChips();
-            renderWatchedGrid();
+            renderListView();
+        }
+
+        // Admin: list labels are just display strings (movieData.listLabels),
+        // separate from the fixed internal category keys in GROUP_ORDER - so
+        // renaming "One Day" to something else never touches stored movies.
+        function renderAdminListLabels() {
+            const container = document.getElementById('admin-list-labels');
+            if (!container) return;
+            container.innerHTML = GROUP_ORDER.map(group => `
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85em;">
+                    <span style="width: 110px; flex-shrink: 0; color: rgba(245,245,247,0.6);">${GROUP_ICONS[group]} ${DEFAULT_LIST_LABELS[group]}</span>
+                    <input type="text" id="admin-label-${group}" value="${escapeHtml(getListLabel(group))}" style="flex: 1; padding: 8px 12px; font-size: 0.95em;">
+                </label>
+            `).join('');
+        }
+
+        function saveListLabels() {
+            if (!movieData.listLabels) movieData.listLabels = {};
+            GROUP_ORDER.forEach(group => {
+                const input = document.getElementById(`admin-label-${group}`);
+                const value = input?.value.trim();
+                movieData.listLabels[group] = value || DEFAULT_LIST_LABELS[group];
+            });
+            saveData();
+            renderGroupChips();
+            renderAdminListLabels();
         }
 
         // A generic, composable filter: every criterion is a plain check on
-        // the filter-state read from the bar's inputs. Adding a new criterion
-        // later (e.g. a "hide already-had-a-note" checkbox) means adding one
-        // more field here, not restructuring the render pipeline.
-        function getFilteredSortedWatchedMovies() {
+        // the filter-state read from the bar's inputs. Movies are pulled from
+        // every active group and tagged with a (non-persisted) `category` so
+        // actions on a combined view still know which real list each item
+        // came from - the objects here are shallow copies, never the real
+        // movieData references, so this tagging never leaks into a save.
+        function getFilteredSortedListMovies() {
             const ratingMin = parseFloat(document.getElementById('watched-filter-rating-min')?.value);
             const ratingMax = parseFloat(document.getElementById('watched-filter-rating-max')?.value);
             const searchTerm = (document.getElementById('watched-filter-search')?.value || '').trim().toLowerCase();
             const sortBy = document.getElementById('watched-filter-sort')?.value || 'year-desc';
 
-            let movies = movieData.watched.filter(movie => {
+            let movies = [];
+            activeGroups.forEach(group => {
+                (movieData[group] || []).forEach(m => movies.push({ ...m, category: group }));
+            });
+
+            movies = movies.filter(movie => {
                 // Genre chips are exclusive - at most one is ever active.
                 if (activeGenreFilters.size > 0) {
                     const movieGenres = movie.genreNames || [];
@@ -1576,7 +1715,7 @@
             return movies;
         }
 
-        // Guards against a real race: renderWatchedGrid is async (it may await
+        // Guards against a real race: renderListView is async (it may await
         // an enrichment fetch), and re-fires on every keystroke in the rating
         // inputs. Without this, a slow earlier call (e.g. triggered while
         // enrichment was still needed) could resolve AFTER a faster later
@@ -1585,26 +1724,33 @@
         // 8-rated title": the filter math was already verified correct.
         let watchedGridRenderToken = 0;
 
-        async function renderWatchedGrid() {
+        async function renderListView() {
             const myRenderToken = ++watchedGridRenderToken;
             const grid = document.getElementById('watched-grid');
-            const count = document.getElementById('watched-count');
             const status = document.getElementById('watched-filter-status');
             const groupBy = document.getElementById('watched-filter-groupby')?.value || 'decade';
 
-            count.textContent = movieData.watched.length;
+            renderGroupChips();
+            renderGenreChips();
 
-            if (movieData.watched.length === 0) {
+            // Enrichment (rating/genre) works on the REAL movie references
+            // from every active group, so results persist via saveData() -
+            // the filtered/sorted list below works off shallow copies instead.
+            let realMovies = [];
+            activeGroups.forEach(group => { realMovies = realMovies.concat(movieData[group] || []); });
+
+            const countEl = document.getElementById('list-count');
+            if (countEl) countEl.textContent = realMovies.length;
+
+            if (realMovies.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-state">
                         <div>📽️</div>
-                        <div>No watched movies yet.</div>
+                        <div>Nothing here yet.</div>
                     </div>
                 `;
                 return;
             }
-
-            renderGenreChips();
 
             // Genre and rating filtering need enrichment data - fetch it (once
             // per movie, ever) before filtering/grouping by either.
@@ -1617,17 +1763,17 @@
                 // genre. That exact fallback signature (rating precisely 5,
                 // zero genres) is cleared so the fixed movie+TV lookup below
                 // re-enriches them correctly.
-                movieData.watched.forEach(m => {
+                realMovies.forEach(m => {
                     if (m.clusterRating === 5 && Array.isArray(m.genreNames) && m.genreNames.length === 0) {
                         m.clusterRating = undefined;
                         m.genreNames = undefined;
                     }
                 });
-                const missing = movieData.watched.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
+                const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
                 if (missing > 0) {
                     status.style.display = 'block';
-                    status.textContent = `Loading genre/rating data for ${missing} movie(s) - one-time, cached after this...`;
-                    await ensureWatchedRatings(movieData.watched, (done, total) => {
+                    status.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
+                    await ensureWatchedRatings(realMovies, (done, total) => {
                         if (myRenderToken === watchedGridRenderToken) {
                             status.textContent = `Loading genre/rating data... ${done} / ${total}`;
                         }
@@ -1640,14 +1786,14 @@
             // abandon this one instead of racing it to paint the grid.
             if (myRenderToken !== watchedGridRenderToken) return;
 
-            const movies = getFilteredSortedWatchedMovies();
+            const movies = getFilteredSortedListMovies();
             grid.classList.toggle('list-mode', watchedViewLayout === 'list');
             const renderItem = watchedViewLayout === 'list'
-                ? movie => buildMovieListRowHtml(movie, 'watched')
-                : movie => buildMovieCardHtml(movie, 'watched');
+                ? movie => buildMovieListRowHtml(movie, movie.category)
+                : movie => buildMovieCardHtml(movie, movie.category);
 
             if (movies.length === 0) {
-                grid.innerHTML = `<div class="empty-state"><div>🔍</div><div>No watched titles match these filters.</div></div>`;
+                grid.innerHTML = `<div class="empty-state"><div>🔍</div><div>No titles match these filters.</div></div>`;
                 return;
             }
 
@@ -2486,8 +2632,8 @@
             delete quickPickLookup[tmdbId];
 
             saveData();
-            // Watched is rendered fresh whenever its view is opened (showWatchedView),
-            // so just swap this one Quick Pick tile here rather than reshuffling the section.
+            // The List view re-renders fresh whenever it's shown, so just swap
+            // this one Quick Pick tile here rather than reshuffling the section.
             await replaceQuickPickTile(tmdbId);
         }
 
@@ -2790,32 +2936,6 @@
         }
 
         // Render a specific category
-        function renderCategory(category, gridId, countId) {
-            console.log(`Rendering category: ${category}, count: ${movieData[category] ? movieData[category].length : 'undefined'}`);
-            
-            const grid = document.getElementById(gridId);
-            const count = document.getElementById(countId);
-            const movies = movieData[category];
-
-            if (!movies) {
-                console.error(`Category ${category} is undefined!`);
-                return;
-            }
-
-            count.textContent = movies.length;
-
-            if (movies.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div>📽️</div>
-                        <div>No movies yet. Add some above!</div>
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = movies.map(movie => buildMovieCardHtml(movie, category)).join('');
-        }
 
         // Unified Add Title modal (movies + TV)
         function openAddTitleModal() {
