@@ -183,36 +183,96 @@
         }
 
         /* Watched cluster view - packed circles, sized by rating */
+        /* ===== Solar-system Cluster view: a futuristic star-map HUD =====
+           Rings and the core are static; .orbit-planet-pivot gets its
+           transform driven every frame by the orbit animation loop. The
+           hover scale lives on the CHILD .cluster-bubble instead, so the
+           two transforms never fight over the same element. */
+
         .cluster-bubble {
             position: absolute;
-            border-radius: 50%;
+            border-radius: 5px;
             overflow: hidden;
             cursor: default;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #0a0d12;
+            border: 1.5px solid var(--zone-color, rgba(255,255,255,0.3));
+            box-shadow: 0 0 8px var(--zone-color, transparent);
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
         }
 
-        /* Solar-system cluster layout: rings are static, .orbit-planet-pivot
-           gets its transform driven every frame by the orbit animation loop -
-           the hover scale below lives on the CHILD .cluster-bubble instead,
-           so the two transforms never fight over the same element. */
-        .orbit-ring {
-            position: absolute;
-            border: 1px dashed rgba(255, 255, 255, 0.12);
-            border-radius: 50%;
-            pointer-events: none;
+        .cluster-bubble:hover {
+            transform: scale(1.35);
+            box-shadow: 0 0 20px var(--zone-color, rgba(255,255,255,0.5)), 0 12px 30px rgba(0, 0, 0, 0.7);
+            z-index: 50;
         }
 
+        /* A tick-marked radar ring, drawn with one conic-gradient masked down
+           to a thin band - a plain dashed circle read as flat; this reads
+           as instrumentation. */
+        .orbit-ring {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            background: repeating-conic-gradient(var(--ring-color) 0deg 1.4deg, transparent 1.4deg 12deg);
+            -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px), #000 100%, transparent 100%);
+            mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px), #000 100%, transparent 100%);
+            opacity: 0.6;
+            filter: drop-shadow(0 0 5px var(--ring-color));
+        }
+
+        .orbit-zone-label {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ring-color);
+            text-shadow: 0 0 8px var(--ring-color);
+            white-space: nowrap;
+            pointer-events: none;
+            background: rgba(6, 10, 16, 0.75);
+            padding: 2px 8px;
+            border: 1px solid var(--ring-color);
+            border-radius: 3px;
+        }
+
+        /* Reactor core instead of a flat "sun" - pulses gently to feel alive. */
         .cluster-sun {
             position: absolute;
-            width: 26px;
-            height: 26px;
-            margin: -13px 0 0 -13px;
+            width: 28px;
+            height: 28px;
+            margin: -14px 0 0 -14px;
             border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #fff6d5, #ffcf6b 40%, #ff9f2e 75%, #ff7a1a 100%);
-            box-shadow: 0 0 40px 10px rgba(255, 170, 60, 0.45), 0 0 80px 20px rgba(255, 140, 40, 0.18);
+            background: radial-gradient(circle at 40% 35%, #eafcff, #4fd8ff 35%, #0aa8d9 70%, #045b78 100%);
+            box-shadow: 0 0 25px 6px rgba(60, 220, 255, 0.55), 0 0 60px 18px rgba(60, 220, 255, 0.22);
             pointer-events: none;
+            animation: core-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes core-pulse {
+            0%, 100% { box-shadow: 0 0 25px 6px rgba(60, 220, 255, 0.55), 0 0 60px 18px rgba(60, 220, 255, 0.22); }
+            50% { box-shadow: 0 0 36px 10px rgba(60, 220, 255, 0.8), 0 0 85px 25px rgba(60, 220, 255, 0.35); }
+        }
+
+        /* Slow radar sweep wedge, purely decorative atmosphere. */
+        .radar-sweep {
+            position: absolute;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, rgba(80, 220, 255, 0.22), transparent 40deg);
+            animation: radar-spin 7s linear infinite;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        @keyframes radar-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .cluster-sun, .radar-sweep { animation: none; }
         }
 
         .orbit-planet-pivot {
@@ -221,17 +281,11 @@
             height: 0;
         }
 
-        .cluster-bubble:hover {
-            transform: scale(1.08);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
-            z-index: 50;
-        }
-
         .cluster-bubble img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            border-radius: 50%;
+            display: block;
         }
 
         .cluster-bubble .cluster-bubble-fallback {
@@ -242,33 +296,56 @@
             justify-content: center;
             background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
             color: rgba(255, 255, 255, 0.2);
-            font-size: 40%;
+            font-size: 55%;
+        }
+
+        /* The always-visible "data sticking to it" readout - a small HUD tag
+           anchored to the bottom edge, not just a hover tooltip. */
+        .cluster-data-tag {
+            position: absolute;
+            left: 50%;
+            bottom: -9px;
+            transform: translateX(-50%);
+            background: rgba(6, 10, 16, 0.92);
+            border: 1px solid var(--zone-color, rgba(255,255,255,0.4));
+            color: var(--zone-color, #f5f5f7);
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+            box-shadow: 0 0 6px var(--zone-color, transparent);
+            pointer-events: none;
+            z-index: 5;
         }
 
         .cluster-bubble-menu-btn {
             position: absolute;
             top: 2%;
             right: 2%;
-            width: 22%;
+            width: 40%;
             height: 22%;
-            min-width: 18px;
-            min-height: 18px;
-            max-width: 28px;
-            max-height: 28px;
-            border-radius: 50%;
-            background: rgba(0, 0, 0, 0.75);
+            min-width: 16px;
+            min-height: 16px;
+            max-width: 24px;
+            max-height: 24px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #f5f5f7;
             display: none;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             line-height: 1;
             cursor: pointer;
             padding: 0;
             letter-spacing: -1px;
+            z-index: 6;
         }
 
         .cluster-bubble:hover .cluster-bubble-menu-btn {
@@ -280,8 +357,8 @@
             bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
-            margin-bottom: 8px;
-            background: rgba(0, 0, 0, 0.9);
+            margin-bottom: 12px;
+            background: rgba(6, 10, 16, 0.95);
             backdrop-filter: blur(10px);
             color: #f5f5f7;
             padding: 6px 12px;
@@ -292,7 +369,8 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--zone-color, rgba(255, 255, 255, 0.1));
+            box-shadow: 0 0 12px var(--zone-color, transparent);
             z-index: 60;
         }
 
@@ -1020,7 +1098,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.4.0";
+        const APP_VERSION = "v23.5.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -2280,17 +2358,23 @@
             viewport.addEventListener('touchend', () => { touchStart = null; });
         }
 
-        // A 2D solar system: three fixed orbit rings by rating band, each
-        // rotating at its own speed (inner rings faster, like real planets
-        // closer to a sun). Capped at 100 titles - a random sample when the
-        // filtered set is bigger, so a huge list (e.g. all of Watched) still
-        // feels representative instead of biased toward sort order.
+        // A 2D solar system, styled as a star-map of your taste. Three orbit
+        // zones, ranked - not threshold-banded. Fixed rating cutoffs (e.g.
+        // "8+") left zones wildly uneven in population depending on how your
+        // actual ratings happened to fall, so a zone could end up almost
+        // empty. Instead: sort everything by rating, fill Core Zone first
+        // with the top third, Mid Belt with the next third, Outer Rim with
+        // what's left - every zone is always roughly balanced by construction.
+        // Capped at 100 titles - a random sample when the filtered set is
+        // bigger, so a huge list (e.g. all of Watched) still feels
+        // representative instead of biased toward sort order.
         const CLUSTER_MAX_PLANETS = 100;
-        const CLUSTER_PLANET_SIZE = 34;
+        const CLUSTER_PLANET_W = 27;
+        const CLUSTER_PLANET_H = 40; // ~2:3 poster aspect ratio
         const CLUSTER_BANDS = [
-            { key: 'inner', test: r => r >= 8, radius: 110, speed: 0.35 },
-            { key: 'mid', test: r => r >= 7 && r < 8, radius: 210, speed: 0.18 },
-            { key: 'outer', test: r => r < 7, radius: 310, speed: 0.09 },
+            { key: 'inner', label: 'Core Zone', color: '#ffd35c', radius: 150, speed: 0.32 },
+            { key: 'mid', label: 'Mid Belt', color: '#4fd8ff', radius: 235, speed: 0.17 },
+            { key: 'outer', label: 'Outer Rim', color: '#7d8fb3', radius: 320, speed: 0.09 },
         ];
 
         let clusterOrbitRAF = null;
@@ -2363,24 +2447,37 @@
 
             status.style.display = 'none';
 
-            const grouped = { inner: [], mid: [], outer: [] };
-            movies.forEach(movie => {
-                const rating = movie.clusterRating ?? 5;
-                const band = CLUSTER_BANDS.find(b => b.test(rating)) || CLUSTER_BANDS[CLUSTER_BANDS.length - 1];
-                grouped[band.key].push(movie);
-            });
+            // Rank-fill: Core Zone gets the top third by rating, Mid Belt the
+            // next third, Outer Rim whatever's left - never threshold-based,
+            // so no zone can end up sparse just because your ratings don't
+            // happen to split evenly across fixed cutoffs.
+            const byRating = [...movies].sort((a, b) => (b.clusterRating || 0) - (a.clusterRating || 0));
+            const total = byRating.length;
+            const innerCount = Math.ceil(total / 3);
+            const midCount = Math.ceil((total - innerCount) / 2);
+            const grouped = {
+                inner: byRating.slice(0, innerCount),
+                mid: byRating.slice(innerCount, innerCount + midCount),
+                outer: byRating.slice(innerCount + midCount),
+            };
 
             const outerRadius = CLUSTER_BANDS[CLUSTER_BANDS.length - 1].radius;
-            const layoutSize = (outerRadius + CLUSTER_PLANET_SIZE / 2 + 50) * 2;
+            const layoutSize = (outerRadius + CLUSTER_PLANET_H / 2 + 60) * 2;
             const center = layoutSize / 2;
 
             container.style.width = `${layoutSize}px`;
             container.style.height = `${layoutSize}px`;
 
-            let html = `<div class="cluster-sun" style="left: ${center}px; top: ${center}px;"></div>`;
+            let html = `
+                <div class="radar-sweep" style="width: ${outerRadius * 2}px; height: ${outerRadius * 2}px; left: ${center - outerRadius}px; top: ${center - outerRadius}px;"></div>
+                <div class="cluster-sun" style="left: ${center}px; top: ${center}px;"></div>
+            `;
 
             CLUSTER_BANDS.forEach(band => {
-                html += `<div class="orbit-ring" style="width: ${band.radius * 2}px; height: ${band.radius * 2}px; left: ${center - band.radius}px; top: ${center - band.radius}px;"></div>`;
+                html += `
+                    <div class="orbit-ring" style="--ring-color: ${band.color}; width: ${band.radius * 2}px; height: ${band.radius * 2}px; left: ${center - band.radius}px; top: ${center - band.radius}px;"></div>
+                    <div class="orbit-zone-label" style="--ring-color: ${band.color}; left: ${center}px; top: ${center - band.radius}px;">${band.label}</div>
+                `;
 
                 const items = grouped[band.key];
                 const count = items.length;
@@ -2393,9 +2490,10 @@
 
                     html += `
                         <div class="orbit-planet-pivot" data-angle0="${angle0}" data-radius="${band.radius}" data-speed="${band.speed}" style="left: ${center}px; top: ${center}px;">
-                            <div class="cluster-bubble" style="width: ${CLUSTER_PLANET_SIZE}px; height: ${CLUSTER_PLANET_SIZE}px; left: ${-CLUSTER_PLANET_SIZE / 2}px; top: ${-CLUSTER_PLANET_SIZE / 2}px;">
+                            <div class="cluster-bubble" style="--zone-color: ${band.color}; width: ${CLUSTER_PLANET_W}px; height: ${CLUSTER_PLANET_H}px; left: ${-CLUSTER_PLANET_W / 2}px; top: ${-CLUSTER_PLANET_H / 2}px;">
                                 <div class="cluster-bubble-tooltip">${safeTitle}${movie.year ? ` (${movie.year})` : ''} · ⭐ ${(movie.clusterRating || 0).toFixed(1)}</div>
                                 ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
+                                <div class="cluster-data-tag">${(movie.clusterRating || 0).toFixed(1)}</div>
                                 <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, '${movie.category}', ${movie.id})">⋯</button>
                             </div>
                         </div>
