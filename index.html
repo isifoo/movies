@@ -735,7 +735,7 @@
         </div>
 
         <div class="controls">
-            <button onclick="showListView()">📋 List</button>
+            <button onclick="openListNav()">📋 List</button>
             <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none;">🎬 Add Title</button>
             <button onclick="openQuickPickModal()">🎲 Quick Pick</button>
             <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recs</button>
@@ -746,7 +746,7 @@
 
 
         <!-- Smart Recs (formerly "For You") - now a popup, opened via the Smart Recs button -->
-        <div class="modal" id="for-you-modal">
+        <div class="modal" id="for-you-modal" onclick="if(event.target===this) closeForYouModal()">
             <div class="modal-content" style="max-width: 1100px; max-height: 85vh; overflow-y: auto;">
                 <div class="category-header">
                     <h2>✨ Smart Recs <span class="count" id="for-you-count">0</span></h2>
@@ -763,14 +763,14 @@
         <div id="list-view">
 
             <div class="category" id="list-grid-mode">
+                <div id="group-chips-bar" style="display: none; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;"></div>
+
                 <div class="category-header">
                     <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
                 </div>
 
-                <div id="group-chips-bar" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;"></div>
-
                 <div id="list-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
-                    <div id="list-cluster-toggle" style="display: none; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
+                    <div id="list-cluster-toggle" style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
                         <button type="button" class="view-mode-grid-btn" onclick="setWatchedViewMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
                         <button type="button" class="view-mode-cluster-btn" onclick="setWatchedViewMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
                     </div>
@@ -780,9 +780,9 @@
                     </div>
                     <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderListView()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
                     <select id="watched-filter-groupby" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
+                        <option value="none" selected>No grouping</option>
                         <option value="decade">Group: Decade</option>
                         <option value="genre">Group: Genre</option>
-                        <option value="none">No grouping</option>
                     </select>
                     <select id="watched-filter-sort" onchange="renderListView()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="year-desc">Sort: Newest first</option>
@@ -828,7 +828,7 @@
         </div>
 
         <!-- Quick Pick - an overlay popup like Smart Recs, same blur/darken treatment -->
-        <div class="modal" id="quick-pick-modal">
+        <div class="modal" id="quick-pick-modal" onclick="if(event.target===this) closeQuickPickModal()">
             <div class="modal-content" style="max-width: 1100px; max-height: 85vh; overflow-y: auto;">
                 <div class="category-header">
                     <h2>🎲 Quick Pick <span class="count" id="quick-pick-count">0</span></h2>
@@ -850,26 +850,29 @@
                     <h2>⚙️ Admin</h2>
                 </div>
                 <h3 style="margin: 0 0 12px;">List names</h3>
-                <div id="admin-list-labels" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; max-width: 400px;"></div>
+                <div id="admin-list-labels" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; max-width: 420px;"></div>
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 14px;">
+                    <input type="text" id="admin-new-list-name" placeholder="New list name..." style="width: 200px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); requireAuth(addCustomList);}">
+                    <button type="button" class="secondary" onclick="requireAuth(addCustomList)" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add List</button>
+                </div>
                 <button type="button" class="secondary" onclick="requireAuth(saveListLabels)" style="padding: 8px 16px; font-size: 0.85em; margin-bottom: 30px;">Save names</button>
 
                 <h3 style="margin: 0 0 12px;">Genre tags</h3>
                 <div id="admin-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 14px;"></div>
-                <div style="display: flex; gap: 6px; align-items: center;">
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 30px;">
                     <input type="text" id="watched-genre-new-input" list="watched-genre-datalist" placeholder="Add a genre tag..." style="width: 200px; padding: 8px 12px; font-size: 0.85em;" onkeydown="if(event.key==='Enter'){event.preventDefault(); requireAuth(addCustomGenre);}">
                     <datalist id="watched-genre-datalist"></datalist>
                     <button type="button" class="secondary" onclick="requireAuth(addCustomGenre)" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap;">+ Add</button>
                 </div>
+
+                <h3 style="margin: 0 0 12px;">Data</h3>
+                <button class="secondary" onclick="requireAuth(() => exportData())">💾 Export Backup</button>
             </div>
         </div>
 
 
         <!-- Technical Controls at Bottom -->
         <div style="margin-top: 50px; padding-top: 30px; border-top: 2px solid rgba(255,255,255,0.2);">
-            <div class="controls">
-                <button class="secondary" onclick="requireAuth(() => exportData())">💾 Export Backup</button>
-            </div>
-            
             <!-- Footer with version and sync status -->
             <div style="text-align: center; margin-top: 30px; padding: 20px; color: rgba(255,255,255,0.4); font-size: 0.75em; font-weight: 500;">
                 <span id="footer-version"></span>
@@ -920,7 +923,7 @@
 
     <!-- Add Movie Modal -->
     <!-- Add Title Modal (movies + TV, unified) -->
-    <div class="modal" id="add-title-modal">
+    <div class="modal" id="add-title-modal" onclick="if(event.target===this) closeAddTitleModal()">
         <div class="modal-content" style="max-width: 600px;">
             <h2>🎬 Add Title</h2>
 
@@ -966,7 +969,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.1.0";
+        const APP_VERSION = "v23.2.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1152,7 +1155,8 @@
             watched: [],
             notMyCupOfTea: [],
             customGenres: [], // user-managed genre tags for the Watched filter chips
-            listLabels: {} // user-renameable display names for the 5 lists (Admin)
+            listLabels: {}, // user-renameable display names for the 5 lists (Admin)
+            customListKeys: [] // keys of user-created lists beyond the 5 built-ins (Admin)
         };
 
 
@@ -1230,6 +1234,9 @@
                     if (!movieData.listLabels) {
                         movieData.listLabels = {};
                     }
+                    if (!movieData.customListKeys) {
+                        movieData.customListKeys = [];
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1251,6 +1258,9 @@
                         if (!movieData.listLabels) {
                             movieData.listLabels = {};
                         }
+                        if (!movieData.customListKeys) {
+                            movieData.customListKeys = [];
+                        }
                         if (!movieData.comingSoon) {
                             movieData.comingSoon = [];
                         }
@@ -1264,7 +1274,8 @@
                             watched: [],
                             notMyCupOfTea: [],
                             customGenres: [],
-                            listLabels: {}
+                            listLabels: {},
+                            customListKeys: []
                         };
                         statusDiv.textContent = '👋 Welcome! Start by adding movies.';
                     }
@@ -1285,6 +1296,9 @@
                     if (!movieData.listLabels) {
                         movieData.listLabels = {};
                     }
+                    if (!movieData.customListKeys) {
+                        movieData.customListKeys = [];
+                    }
                     if (!movieData.comingSoon) {
                         movieData.comingSoon = [];
                     }
@@ -1296,7 +1310,8 @@
                         watched: [],
                         notMyCupOfTea: [],
                         customGenres: [],
-                        listLabels: {}
+                        listLabels: {},
+                        customListKeys: []
                     };
                 }
                 statusDiv.textContent = '⚠️ Using local data. Cloud sync unavailable.';
@@ -1403,6 +1418,52 @@
 
         // Renders the Watched grid grouped by decade (newest first). Movies
         // with no year go in an "Unknown" group at the end.
+        // "Move to..." works for every list, including custom ones - it's
+        // the only way to get a title INTO a custom list, since Add Title
+        // only ever targets Want to Watch/TV Shows directly.
+        function buildMoveToSelectHtml(category, movieId) {
+            const options = getAllGroups()
+                .filter(g => g !== category)
+                .map(g => `<option value="${g}">${escapeHtml(getListLabel(g))}</option>`)
+                .join('');
+            return `<select onchange="if(this.value){requireAuth(() => moveMovieToList('${category}', ${movieId}, this.value)); this.value='';}" onclick="event.stopPropagation();" style="width: auto; padding: 4px 6px; font-size: 0.75em;" title="Move to another list">
+                <option value="">Move to...</option>
+                ${options}
+            </select>`;
+        }
+
+        function moveMovieToList(fromCategory, movieId, toKey) {
+            if (!toKey || toKey === fromCategory) return;
+            const movie = (movieData[fromCategory] || []).find(m => m.id === movieId);
+            if (!movie) return;
+            movieData[fromCategory] = movieData[fromCategory].filter(m => m.id !== movieId);
+            if (!movieData[toKey]) movieData[toKey] = [];
+            movieData[toKey].push(movie);
+            saveData();
+            if (watchedViewMode === 'cluster') {
+                renderWatchedCluster();
+            } else {
+                renderAll();
+            }
+        }
+
+        // The three fixed non-watched, non-primary categories each have their
+        // own "move back" verb; a custom list has none, so it just falls
+        // through to no button there (the generic "Move to..." select covers it).
+        function buildLifecycleActionHtml(category, movieId) {
+            if (category === 'wantToWatch' || category === 'recommended') {
+                return `<button onclick="requireAuth(() => markAsWatched('${category}', ${movieId}))" title="Mark as Watched">👁</button>
+                         <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movieId}))" title="One Day">🤞</button>`;
+            }
+            if (category === 'watched') {
+                return `<button onclick="requireAuth(() => unmarkWatched(${movieId}))" title="Move back to Want to Watch">↺</button>`;
+            }
+            if (category === 'comingSoon' || category === 'notMyCupOfTea') {
+                return `<button onclick="requireAuth(() => moveBackToWantToWatch(${movieId}))" title="Move to Want to Watch">↺</button>`;
+            }
+            return '';
+        }
+
         function buildMovieCardHtml(movie, category) {
             const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
             const safeTitle = escapeHtml(movie.title);
@@ -1418,14 +1479,9 @@
                         </div>
                         ${isAuthenticated() ? `
                         <div class="movie-info-actions">
-                            ${category === 'wantToWatch' || category === 'recommended' ?
-                                `<button onclick="requireAuth(() => markAsWatched('${category}', ${movie.id}))" title="Mark as Watched">👁</button>
-                                 <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` :
-                              category === 'watched' ?
-                                `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
-                                `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
-                            }
+                            ${buildLifecycleActionHtml(category, movie.id)}
                             <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
+                            ${buildMoveToSelectHtml(category, movie.id)}
                         </div>` : ''}
                     </div>
                 </div>
@@ -1452,14 +1508,9 @@
                     <div class="movie-list-meta">${[ratingText, genreText].filter(Boolean).join(' · ')}</div>
                     ${isAuthenticated() ? `
                     <div class="movie-list-actions" onclick="event.stopPropagation();">
-                        ${category === 'wantToWatch' || category === 'recommended' ?
-                            `<button onclick="requireAuth(() => markAsWatched('${category}', ${movie.id}))" title="Mark as Watched">👁</button>
-                             <button onclick="requireAuth(() => markAsNotMyCupOfTea('${category}', ${movie.id}))" title="One Day">🤞</button>` :
-                          category === 'watched' ?
-                            `<button onclick="requireAuth(() => unmarkWatched(${movie.id}))" title="Move back to Want to Watch">↺</button>` :
-                            `<button onclick="requireAuth(() => moveBackToWantToWatch(${movie.id}))" title="Move to Want to Watch">↺</button>`
-                        }
+                        ${buildLifecycleActionHtml(category, movie.id)}
                         <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
+                        ${buildMoveToSelectHtml(category, movie.id)}
                     </div>` : ''}
                 </div>
             `;
@@ -1476,15 +1527,24 @@
         // the saved list is just which tags exist, not which are active.
         let activeGenreFilters = new Set();
 
-        // The five real lists, unified into one browsable view. Group chips
-        // are multi-select (unlike genre chips, which are exclusive) - you
-        // can combine e.g. Want to Watch + TV Shows into one filtered pool.
-        // At least one group must stay active, so there's always something
-        // to show. Default: Want to Watch only.
+        // The five built-in lists, plus any user-created ones (Admin), unified
+        // into one browsable view. Group chips are multi-select (unlike genre
+        // chips, which are exclusive) - you can combine e.g. Want to Watch +
+        // TV Shows into one filtered pool. At least one group must stay
+        // active, so there's always something to show. Default: Want to
+        // Watch only.
         const GROUP_ORDER = ['wantToWatch', 'comingSoon', 'notMyCupOfTea', 'recommended', 'watched'];
         const GROUP_ICONS = { wantToWatch: '🎯', comingSoon: '🔜', notMyCupOfTea: '🤞', recommended: '📺', watched: '✅' };
         const DEFAULT_LIST_LABELS = { wantToWatch: 'Want to Watch', comingSoon: 'Coming Soon', notMyCupOfTea: 'One Day', recommended: 'TV Shows', watched: 'Watched' };
         let activeGroups = new Set(['wantToWatch']);
+
+        // Custom lists (Admin's "+ Add List") are just an extra key on
+        // movieData plus a label - no separate storage shape from the 5
+        // built-ins, so every existing filter/render/save path already
+        // handles them for free.
+        function getAllGroups() {
+            return [...GROUP_ORDER, ...(movieData.customListKeys || [])];
+        }
 
         function getListLabel(group) {
             return (movieData.listLabels && movieData.listLabels[group]) || DEFAULT_LIST_LABELS[group] || group;
@@ -1499,16 +1559,35 @@
             renderListView();
         }
 
+        // The chip row is collapsed by default and only appears while
+        // groupChipsOpen is true - toggled by the top-nav List button
+        // (openListNav), not reset by ordinary re-renders.
+        let groupChipsOpen = false;
+
+        function openListNav() {
+            const alreadyOnList = document.getElementById('list-view').style.display !== 'none'
+                && document.getElementById('admin-view').style.display === 'none';
+            if (!alreadyOnList) {
+                showListView();
+                groupChipsOpen = true;
+            } else {
+                groupChipsOpen = !groupChipsOpen;
+            }
+            const bar = document.getElementById('group-chips-bar');
+            if (bar) bar.style.display = groupChipsOpen ? 'flex' : 'none';
+        }
+
         function renderGroupChips() {
             const container = document.getElementById('group-chips-bar');
             if (!container) return;
-            container.innerHTML = GROUP_ORDER.map(group => {
+            container.style.display = groupChipsOpen ? 'flex' : 'none';
+            container.innerHTML = getAllGroups().map(group => {
                 const active = activeGroups.has(group);
                 const count = (movieData[group] || []).length;
                 const label = escapeHtml(getListLabel(group));
                 return `
                     <button type="button" onclick="toggleGroupFilter('${group}')" style="padding: 8px 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
-                        ${GROUP_ICONS[group] || ''} ${label} <span style="opacity: 0.7;">${count}</span>
+                        ${GROUP_ICONS[group] || '📁'} ${label} <span style="opacity: 0.7;">${count}</span>
                     </button>
                 `;
             }).join('');
@@ -1518,22 +1597,11 @@
                 const countEl = `<span class="count" id="list-count">0</span>`;
                 if (activeGroups.size === 1) {
                     const only = [...activeGroups][0];
-                    title.innerHTML = `${GROUP_ICONS[only] || ''} ${escapeHtml(getListLabel(only))} ${countEl}`;
+                    title.innerHTML = `${GROUP_ICONS[only] || '📁'} ${escapeHtml(getListLabel(only))} ${countEl}`;
                 } else {
                     const labels = [...activeGroups].map(g => getListLabel(g)).join(' + ');
                     title.innerHTML = `📋 ${escapeHtml(labels)} ${countEl}`;
                 }
-            }
-
-            // Cluster view only makes sense for Watched alone (it's the only
-            // group with ratings baked in for it). Hide the toggle and force
-            // grid mode otherwise, rather than showing a cluster of mixed,
-            // mostly-unrated titles.
-            const clusterToggle = document.getElementById('list-cluster-toggle');
-            const clusterEligible = activeGroups.size === 1 && activeGroups.has('watched');
-            if (clusterToggle) clusterToggle.style.display = clusterEligible ? 'flex' : 'none';
-            if (!clusterEligible && watchedViewMode === 'cluster') {
-                setWatchedViewMode('grid');
             }
         }
 
@@ -1645,7 +1713,7 @@
         }
 
         function resetWatchedFilters() {
-            document.getElementById('watched-filter-groupby').value = 'decade';
+            document.getElementById('watched-filter-groupby').value = 'none';
             document.getElementById('watched-filter-sort').value = 'year-desc';
             document.getElementById('watched-filter-rating-min').value = '';
             document.getElementById('watched-filter-rating-max').value = '';
@@ -1661,12 +1729,20 @@
         function renderAdminListLabels() {
             const container = document.getElementById('admin-list-labels');
             if (!container) return;
-            container.innerHTML = GROUP_ORDER.map(group => `
+            const fixedRows = GROUP_ORDER.map(group => `
                 <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85em;">
                     <span style="width: 110px; flex-shrink: 0; color: rgba(245,245,247,0.6);">${GROUP_ICONS[group]} ${DEFAULT_LIST_LABELS[group]}</span>
                     <input type="text" id="admin-label-${group}" value="${escapeHtml(getListLabel(group))}" style="flex: 1; padding: 8px 12px; font-size: 0.95em;">
                 </label>
-            `).join('');
+            `);
+            const customRows = (movieData.customListKeys || []).map(key => `
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85em;">
+                    <span style="width: 110px; flex-shrink: 0; color: rgba(245,245,247,0.6);">📁 Custom</span>
+                    <input type="text" id="admin-label-${key}" value="${escapeHtml(getListLabel(key))}" style="flex: 1; padding: 8px 12px; font-size: 0.95em;">
+                    <span onclick="requireAuth(() => deleteCustomList('${key}'))" title="Delete this list" style="width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; flex-shrink: 0;">✕</span>
+                </label>
+            `);
+            container.innerHTML = [...fixedRows, ...customRows].join('');
         }
 
         function saveListLabels() {
@@ -1676,9 +1752,45 @@
                 const value = input?.value.trim();
                 movieData.listLabels[group] = value || DEFAULT_LIST_LABELS[group];
             });
+            (movieData.customListKeys || []).forEach(key => {
+                const input = document.getElementById(`admin-label-${key}`);
+                const value = input?.value.trim();
+                if (value) movieData.listLabels[key] = value;
+            });
             saveData();
             renderGroupChips();
             renderAdminListLabels();
+        }
+
+        // A custom list is just one more key on movieData plus a label - the
+        // filter/render/save pipeline already treats every group generically
+        // (getAllGroups), so nothing else needs to know this one is "custom".
+        function addCustomList() {
+            const input = document.getElementById('admin-new-list-name');
+            const name = input.value.trim();
+            if (!name) return;
+            const key = 'custom_' + Date.now();
+            if (!movieData.customListKeys) movieData.customListKeys = [];
+            if (!movieData.listLabels) movieData.listLabels = {};
+            movieData.customListKeys.push(key);
+            movieData.listLabels[key] = name;
+            movieData[key] = [];
+            input.value = '';
+            saveData();
+            renderAdminListLabels();
+            renderGroupChips();
+        }
+
+        function deleteCustomList(key) {
+            if (!confirm(`Delete the "${getListLabel(key)}" list? Any titles in it will be lost for good.`)) return;
+            movieData.customListKeys = (movieData.customListKeys || []).filter(k => k !== key);
+            delete movieData.listLabels[key];
+            delete movieData[key];
+            activeGroups.delete(key);
+            if (activeGroups.size === 0) activeGroups.add('wantToWatch');
+            saveData();
+            renderAdminListLabels();
+            renderGroupChips();
         }
 
         // A generic, composable filter: every criterion is a plain check on
@@ -1735,7 +1847,7 @@
             const myRenderToken = ++watchedGridRenderToken;
             const grid = document.getElementById('watched-grid');
             const status = document.getElementById('watched-filter-status');
-            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'decade';
+            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
 
             renderGroupChips();
             renderGenreChips();
@@ -1991,17 +2103,27 @@
             }
         }
 
-        function openClusterContextMenu(event, movie) {
+        function openClusterContextMenu(event, category, movieId) {
             event.stopPropagation();
             closeClusterContextMenu();
 
+            const movie = (movieData[category] || []).find(m => m.id === movieId);
+            if (!movie) return;
+
+            // Cluster now shows any list, not just Watched - the "move back"
+            // action only makes sense for categories that actually have one.
+            const moveBtn = category === 'watched'
+                ? `<button onclick="requireAuth(() => { unmarkWatched(${movieId}); closeClusterContextMenu(); })">↺ Move back</button>`
+                : (category === 'comingSoon' || category === 'notMyCupOfTea')
+                    ? `<button onclick="requireAuth(() => { moveBackToWantToWatch(${movieId}); closeClusterContextMenu(); })">↺ Move to Want to Watch</button>`
+                    : '';
+
             const menu = document.createElement('div');
             menu.className = 'cluster-context-menu';
-            // Placeholder actions - easy to extend once we decide what belongs here
             menu.innerHTML = `
                 <button onclick="window.open('https://www.imdb.com/title/${movie.imdbId || ''}/', '_blank'); closeClusterContextMenu();" ${!movie.imdbId ? 'disabled' : ''}>🔗 Open IMDb</button>
-                <button onclick="requireAuth(() => { unmarkWatched(${movie.id}); closeClusterContextMenu(); })">↺ Move back</button>
-                <button onclick="requireAuth(() => { deleteMovie('watched', ${movie.id}); closeClusterContextMenu(); })">✕ Delete</button>
+                ${moveBtn}
+                <button onclick="requireAuth(() => { deleteMovie('${category}', ${movieId}); closeClusterContextMenu(); })">✕ Delete</button>
             `;
 
             document.body.appendChild(menu);
@@ -2131,25 +2253,37 @@
             const container = document.getElementById('watched-cluster-container');
             const status = document.getElementById('watched-cluster-status');
             const count = document.getElementById('watched-cluster-count');
-            const movies = movieData.watched;
 
-            count.textContent = movies.length;
+            // Enrichment mutates the REAL movie objects (so it persists via
+            // saveData()) before the tagged, render-only copies get built below.
+            let realMovies = [];
+            activeGroups.forEach(group => { realMovies = realMovies.concat(movieData[group] || []); });
 
-            if (movies.length === 0) {
+            count.textContent = realMovies.length;
+
+            if (realMovies.length === 0) {
                 container.innerHTML = '';
                 status.style.display = 'block';
-                status.textContent = 'No watched movies yet.';
+                status.textContent = 'Nothing here yet.';
                 return;
             }
 
             status.style.display = 'block';
-            status.textContent = `Loading ratings... 0 / ${movies.filter(m => m.clusterRating === undefined).length || movies.length}`;
+            status.textContent = `Loading ratings... 0 / ${realMovies.filter(m => m.clusterRating === undefined).length || realMovies.length}`;
 
-            await ensureWatchedRatings(movies, (done, total) => {
+            await ensureWatchedRatings(realMovies, (done, total) => {
                 status.textContent = `Loading ratings... ${done} / ${total}`;
             });
 
             status.style.display = 'none';
+
+            // Render-only tagged copies, built AFTER enrichment so they carry
+            // the fresh clusterRating/genreNames - never mutate the real
+            // movieData objects with a `category` field that would get saved.
+            const movies = [];
+            activeGroups.forEach(group => {
+                (movieData[group] || []).forEach(m => movies.push({ ...m, category: group }));
+            });
 
             // Map rating (roughly 5-10 range in practice) to a circle radius in px.
             // Lowest-rated movie is exactly 20% the size of the highest-rated one.
@@ -2204,7 +2338,7 @@
                     <div class="cluster-bubble" style="width: ${size}px; height: ${size}px; left: ${left}px; top: ${top}px;">
                         <div class="cluster-bubble-tooltip">${safeTitle}${movie.year ? ` (${movie.year})` : ''} · ⭐ ${(movie.clusterRating || 0).toFixed(1)}</div>
                         ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
-                        <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, movieData.watched.find(m => m.id === ${movie.id}))">⋯</button>
+                        <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, '${movie.category}', ${movie.id})">⋯</button>
                     </div>
                 `;
             }).join('');
@@ -3212,12 +3346,10 @@
         function deleteMovie(category, movieId) {
             movieData[category] = movieData[category].filter(m => m.id !== movieId);
             saveData();
-            if (category === 'watched') {
-                if (watchedViewMode === 'cluster') {
-                    renderWatchedCluster();
-                } else {
-                    renderWatchedGrid();
-                }
+            // Cluster is available for any group combination now, not just
+            // Watched - re-render whichever view is actually on screen.
+            if (watchedViewMode === 'cluster') {
+                renderWatchedCluster();
             } else {
                 renderAll();
             }
