@@ -736,6 +736,8 @@
 
         <div class="controls">
             <button onclick="showListView()">📋 List</button>
+            <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none;">🎬 Add Title</button>
+            <button onclick="openQuickPickModal()">🎲 Quick Pick</button>
             <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recs</button>
             <button onclick="requireAuth(() => openMovieChat())" style="background: linear-gradient(135deg, #8E44AD 0%, #6C3483 100%);">💬 Movie Chat</button>
             <button id="admin-nav-btn" onclick="requireAuth(() => showAdminView())" style="display: none;">⚙️ Admin</button>
@@ -763,7 +765,6 @@
             <div class="category" id="list-grid-mode">
                 <div class="category-header">
                     <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
-                    <button id="list-add-title-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none; padding: 8px 16px; font-size: 0.85em;">🎬 Add Title</button>
                 </div>
 
                 <div id="group-chips-bar" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;"></div>
@@ -824,11 +825,17 @@
                     <div id="watched-cluster-container" style="position: absolute; top: 0; left: 0; transform-origin: 0 0;"></div>
                 </div>
             </div>
+        </div>
 
-            <div class="category">
+        <!-- Quick Pick - an overlay popup like Smart Recs, same blur/darken treatment -->
+        <div class="modal" id="quick-pick-modal">
+            <div class="modal-content" style="max-width: 1100px; max-height: 85vh; overflow-y: auto;">
                 <div class="category-header">
                     <h2>🎲 Quick Pick <span class="count" id="quick-pick-count">0</span></h2>
-                    <button onclick="manualRefreshQuickPick()" title="Shuffle now" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="manualRefreshQuickPick()" title="Shuffle now" style="padding: 8px 16px; font-size: 0.85em;">🔄 Refresh</button>
+                        <button class="cancel" onclick="closeQuickPickModal()" style="padding: 8px 16px; font-size: 0.85em;">✕ Close</button>
+                    </div>
                 </div>
                 <div class="movie-grid" id="quick-pick-grid"></div>
             </div>
@@ -959,7 +966,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.0.0";
+        const APP_VERSION = "v23.1.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1059,7 +1066,7 @@
         // of only after the next unrelated re-render.
         function refreshEditUI() {
             const authed = isAuthenticated();
-            const addTitleBtn = document.getElementById('list-add-title-btn');
+            const addTitleBtn = document.getElementById('add-title-nav-btn');
             if (addTitleBtn) addTitleBtn.style.display = authed ? '' : 'none';
             const adminBtn = document.getElementById('admin-nav-btn');
             if (adminBtn) adminBtn.style.display = authed ? '' : 'none';
@@ -2960,6 +2967,21 @@
 
         function closeForYouModal() {
             document.getElementById('for-you-modal').classList.remove('active');
+        }
+
+        // Quick Pick used to be an always-visible section under the List
+        // view; it's a popup now, same as Smart Recs, reusing the same
+        // .modal class so both get the identical blur/darken backdrop.
+        function openQuickPickModal() {
+            document.getElementById('quick-pick-modal').classList.add('active');
+            // The grid was pre-rendered while hidden (width read as 0), so the
+            // row-fit math couldn't trim to complete rows yet - redo it now
+            // that the container has a real width, same as the resize handler.
+            if (quickPickDisplayed.length > 0) refitQuickPickGrid();
+        }
+
+        function closeQuickPickModal() {
+            document.getElementById('quick-pick-modal').classList.remove('active');
         }
 
         function toggleManualTitleEntry() {
