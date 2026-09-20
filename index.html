@@ -182,113 +182,70 @@
             margin-left: 6px;
         }
 
-        /* Watched cluster view - packed circles, sized by rating */
-        /* ===== Solar-system Cluster view: a futuristic star-map HUD =====
-           Rings and the core are static; .orbit-planet-pivot gets its
-           transform driven every frame by the orbit animation loop. The
-           hover scale lives on the CHILD .cluster-bubble instead, so the
-           two transforms never fight over the same element. */
+        /* ===== "Flow" view (formerly Cluster) =====
+           Rows scroll themselves horizontally forever via a pure CSS
+           animation (no per-frame JS needed) - each row's content is
+           rendered twice back-to-back so translateX(0) -> translateX(-50%)
+           loops seamlessly. Hovering a row slows it down via a CSS custom
+           property; hovering a card grows it and reveals .flow-info. */
 
-        .cluster-bubble {
-            position: absolute;
-            border-radius: 5px;
-            overflow: hidden;
-            cursor: default;
-            background: #0a0d12;
-            border: 1.5px solid var(--zone-color, rgba(255,255,255,0.3));
-            box-shadow: 0 0 8px var(--zone-color, transparent);
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
+        .flow-row {
+            overflow-x: hidden;
+            overflow-y: visible;
+            padding: 24px 0;
+            position: relative;
         }
 
-        .cluster-bubble:hover {
-            transform: scale(1.35);
-            box-shadow: 0 0 20px var(--zone-color, rgba(255,255,255,0.5)), 0 12px 30px rgba(0, 0, 0, 0.7);
-            z-index: 50;
+        .flow-track {
+            display: flex;
+            gap: 14px;
+            width: max-content;
+            animation-name: flow-scroll;
+            animation-duration: var(--flow-duration, 40s);
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
         }
 
-        /* A tick-marked radar ring, drawn with one conic-gradient masked down
-           to a thin band - a plain dashed circle read as flat; this reads
-           as instrumentation. */
-        .orbit-ring {
-            position: absolute;
-            border-radius: 50%;
-            pointer-events: none;
-            background: repeating-conic-gradient(var(--ring-color) 0deg 1.4deg, transparent 1.4deg 12deg);
-            -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px), #000 100%, transparent 100%);
-            mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px), #000 100%, transparent 100%);
-            opacity: 0.6;
-            filter: drop-shadow(0 0 5px var(--ring-color));
+        .flow-row:hover .flow-track {
+            animation-duration: calc(var(--flow-duration, 40s) * 6);
         }
 
-        .orbit-zone-label {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: var(--ring-color);
-            text-shadow: 0 0 8px var(--ring-color);
-            white-space: nowrap;
-            pointer-events: none;
-            background: rgba(6, 10, 16, 0.75);
-            padding: 2px 8px;
-            border: 1px solid var(--ring-color);
-            border-radius: 3px;
-        }
-
-        /* Reactor core instead of a flat "sun" - pulses gently to feel alive. */
-        .cluster-sun {
-            position: absolute;
-            width: 28px;
-            height: 28px;
-            margin: -14px 0 0 -14px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 40% 35%, #eafcff, #4fd8ff 35%, #0aa8d9 70%, #045b78 100%);
-            box-shadow: 0 0 25px 6px rgba(60, 220, 255, 0.55), 0 0 60px 18px rgba(60, 220, 255, 0.22);
-            pointer-events: none;
-            animation: core-pulse 3s ease-in-out infinite;
-        }
-
-        @keyframes core-pulse {
-            0%, 100% { box-shadow: 0 0 25px 6px rgba(60, 220, 255, 0.55), 0 0 60px 18px rgba(60, 220, 255, 0.22); }
-            50% { box-shadow: 0 0 36px 10px rgba(60, 220, 255, 0.8), 0 0 85px 25px rgba(60, 220, 255, 0.35); }
-        }
-
-        /* Slow radar sweep wedge, purely decorative atmosphere. */
-        .radar-sweep {
-            position: absolute;
-            border-radius: 50%;
-            background: conic-gradient(from 0deg, rgba(80, 220, 255, 0.22), transparent 40deg);
-            animation: radar-spin 7s linear infinite;
-            pointer-events: none;
-            mix-blend-mode: screen;
-        }
-
-        @keyframes radar-spin {
-            to { transform: rotate(360deg); }
+        @keyframes flow-scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .cluster-sun, .radar-sweep { animation: none; }
+            .flow-track { animation: none; }
         }
 
-        .orbit-planet-pivot {
-            position: absolute;
-            width: 0;
-            height: 0;
+        .flow-card {
+            position: relative;
+            flex-shrink: 0;
+            width: 130px;
+            height: 195px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
         }
 
-        .cluster-bubble img {
+        .flow-card:hover {
+            transform: scale(1.55);
+            z-index: 20;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75);
+        }
+
+        .flow-card img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
 
-        .cluster-bubble .cluster-bubble-fallback {
+        .cluster-bubble-fallback {
             width: 100%;
             height: 100%;
             display: flex;
@@ -296,112 +253,69 @@
             justify-content: center;
             background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
             color: rgba(255, 255, 255, 0.2);
-            font-size: 55%;
+            font-size: 2.5em;
         }
 
-        /* The always-visible "data sticking to it" readout - a small HUD tag
-           anchored to the bottom edge, not just a hover tooltip. */
-        .cluster-data-tag {
+        /* The "data sticking to it" panel - hidden by default, revealed and
+           grown along with the card on hover. */
+        .flow-info {
             position: absolute;
-            left: 50%;
-            bottom: -9px;
-            transform: translateX(-50%);
-            background: rgba(6, 10, 16, 0.92);
-            border: 1px solid var(--zone-color, rgba(255,255,255,0.4));
-            color: var(--zone-color, #f5f5f7);
-            font-family: 'Courier New', monospace;
-            font-size: 9px;
-            font-weight: 700;
-            line-height: 1;
-            padding: 2px 4px;
-            border-radius: 3px;
-            white-space: nowrap;
-            box-shadow: 0 0 6px var(--zone-color, transparent);
-            pointer-events: none;
-            z-index: 5;
-        }
-
-        .cluster-bubble-menu-btn {
-            position: absolute;
-            top: 2%;
-            right: 2%;
-            width: 40%;
-            height: 22%;
-            min-width: 16px;
-            min-height: 16px;
-            max-width: 24px;
-            max-height: 24px;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #f5f5f7;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-            line-height: 1;
-            cursor: pointer;
-            padding: 0;
-            letter-spacing: -1px;
-            z-index: 6;
-        }
-
-        .cluster-bubble:hover .cluster-bubble-menu-btn {
-            display: flex;
-        }
-
-        .cluster-bubble-tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-bottom: 12px;
-            background: rgba(6, 10, 16, 0.95);
-            backdrop-filter: blur(10px);
-            color: #f5f5f7;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-            white-space: nowrap;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.96) 45%, rgba(0, 0, 0, 0.55) 80%, transparent 100%);
+            padding: 10px 8px 8px;
             opacity: 0;
-            pointer-events: none;
+            visibility: hidden;
             transition: opacity 0.2s;
-            border: 1px solid var(--zone-color, rgba(255, 255, 255, 0.1));
-            box-shadow: 0 0 12px var(--zone-color, transparent);
-            z-index: 60;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
-        .cluster-bubble:hover .cluster-bubble-tooltip {
+        .flow-card:hover .flow-info {
             opacity: 1;
+            visibility: visible;
         }
 
-        .cluster-context-menu {
-            position: fixed;
-            background: #1d1d1f;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 6px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-            z-index: 10001;
-            min-width: 160px;
+        .flow-info-title {
+            font-size: 0.74em;
+            font-weight: 700;
+            color: #f5f5f7;
+            line-height: 1.25;
         }
 
-        .cluster-context-menu button {
-            display: block;
-            width: 100%;
-            text-align: left;
-            background: none;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 12px;
-            font-size: 14px;
+        .flow-info-meta {
+            font-size: 0.64em;
+            color: rgba(245, 245, 247, 0.75);
         }
 
-        .cluster-context-menu button:hover {
-            background: rgba(255, 255, 255, 0.08);
+        .flow-info-plot {
+            font-size: 0.6em;
+            color: rgba(245, 245, 247, 0.6);
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .flow-info-actions {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+
+        .flow-info-actions button {
+            padding: 3px 6px;
+            font-size: 0.62em;
+        }
+
+        .flow-info-actions select {
+            padding: 3px 4px;
+            font-size: 0.58em;
+            width: auto;
         }
 
         .chat-message {
@@ -908,7 +822,7 @@
                 <div id="list-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
                     <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
                         <button type="button" class="display-mode-btn" data-mode="grid" onclick="setListDisplayMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
-                        <button type="button" class="display-mode-btn" data-mode="cluster" onclick="setListDisplayMode('cluster')" title="Cluster view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">⚪ Cluster</button>
+                        <button type="button" class="display-mode-btn" data-mode="cluster" onclick="setListDisplayMode('cluster')" title="Flow view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">🎞️ Flow</button>
                         <button type="button" class="display-mode-btn" data-mode="details" onclick="setListDisplayMode('details')" title="Details view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰ Details</button>
                     </div>
                     <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderCurrentDisplay()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
@@ -943,15 +857,8 @@
                 </div>
 
                 <div id="watched-cluster-mode" style="display: none;">
-                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px;">
-                        <button onclick="clusterZoomBy(1.3)" title="Zoom in" style="padding: 8px 14px;">+</button>
-                        <button onclick="clusterZoomBy(1/1.3)" title="Zoom out" style="padding: 8px 14px;">−</button>
-                        <button onclick="clusterResetView()" title="Reset view" style="padding: 8px 14px; font-size: 0.85em;">⟲ Fit</button>
-                    </div>
                     <div id="watched-cluster-status" style="text-align: center; color: rgba(245,245,247,0.5); padding: 20px; display: none;"></div>
-                    <div id="watched-cluster-viewport" style="position: relative; width: 100%; height: 70vh; min-height: 400px; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%); border: 1px solid rgba(255,255,255,0.06); cursor: grab;">
-                        <div id="watched-cluster-container" style="position: absolute; top: 0; left: 0; transform-origin: 0 0;"></div>
-                    </div>
+                    <div id="flow-rows-container"></div>
                 </div>
             </div>
         </div>
@@ -1098,7 +1005,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.5.0";
+        const APP_VERSION = "v23.6.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1546,7 +1453,6 @@
             } else {
                 clusterPane.style.display = 'none';
                 gridPane.style.display = 'block';
-                stopClusterOrbitAnimation();
             }
             updateDisplayModeButtons();
         }
@@ -2033,7 +1939,7 @@
                         m.genreNames = undefined;
                     }
                 });
-                const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined).length;
+                const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined).length;
                 if (missing > 0 && statusEl) {
                     statusEl.style.display = 'block';
                     statusEl.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
@@ -2170,7 +2076,8 @@
                 const genreMap = type === 'tv' ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
                 return {
                     rating: pick.vote_average,
-                    genreNames: (pick.genre_ids || []).map(id => genreMap[id]).filter(Boolean)
+                    genreNames: (pick.genre_ids || []).map(id => genreMap[id]).filter(Boolean),
+                    overview: pick.overview || ''
                 };
             } catch (error) {
                 console.error('Enrichment fetch failed for', movie.title, error);
@@ -2185,7 +2092,7 @@
         // version. Only fetches for movies missing either field; persists via
         // saveData() so this genuinely only happens once per movie, ever.
         async function ensureWatchedRatings(movies, onProgress) {
-            const needsEnrichment = movies.filter(m => m.clusterRating === undefined || m.genreNames === undefined);
+            const needsEnrichment = movies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined);
             if (needsEnrichment.length === 0) return;
 
             let done = 0;
@@ -2196,6 +2103,7 @@
                     const info = await fetchTmdbEnrichmentForMovie(movie);
                     movie.clusterRating = movie.clusterRating !== undefined ? movie.clusterRating : (info?.rating || 5.0);
                     movie.genreNames = movie.genreNames !== undefined ? movie.genreNames : (info?.genreNames || []);
+                    movie.overview = movie.overview !== undefined ? movie.overview : (info?.overview || '');
                     done++;
                     if (onProgress) onProgress(done, needsEnrichment.length);
                 }));
@@ -2203,223 +2111,63 @@
             saveData();
         }
 
-        let clusterContextMenuEl = null;
+        // ===== "Flow" view (formerly Cluster) =====
+        // Same filtered/sorted set as Grid, laid out as rows that scroll
+        // themselves horizontally and loop forever - a moving wall of posters
+        // instead of a static grid. Hovering a title slows its row down,
+        // grows the poster, and reveals year/rating/plot plus the normal
+        // list actions. Internal names (renderWatchedCluster, 'cluster' as
+        // the mode value) are unchanged from the old solar-system view to
+        // avoid touching every call site - only what's inside changed.
+        const FLOW_MAX_ITEMS = 200;
+        const FLOW_ITEMS_PER_ROW = 8;
+        const FLOW_SPEED_PX_PER_SEC = 24; // consistent perceived speed regardless of row width
+        const FLOW_CARD_WIDTH = 130;
+        const FLOW_CARD_GAP = 14;
 
-        function closeClusterContextMenu() {
-            if (clusterContextMenuEl) {
-                clusterContextMenuEl.remove();
-                clusterContextMenuEl = null;
-            }
-        }
+        function buildFlowCardHtml(movie) {
+            const category = movie.category;
+            const safeTitle = escapeHtml(movie.title);
+            const rating = movie.clusterRating;
+            const ratingText = rating !== undefined ? `⭐ ${rating.toFixed(1)}` : '';
+            const genreText = movie.genreNames && movie.genreNames.length ? escapeHtml(movie.genreNames.slice(0, 3).join(', ')) : '';
+            const plotText = movie.overview ? escapeHtml(movie.overview) : 'No plot synopsis cached yet.';
+            const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
 
-        function openClusterContextMenu(event, category, movieId) {
-            event.stopPropagation();
-            closeClusterContextMenu();
-
-            const movie = (movieData[category] || []).find(m => m.id === movieId);
-            if (!movie) return;
-
-            // Cluster now shows any list, not just Watched - the "move back"
-            // action only makes sense for categories that actually have one.
-            const moveBtn = category === 'watched'
-                ? `<button onclick="requireAuth(() => { unmarkWatched(${movieId}); closeClusterContextMenu(); })">↺ Move back</button>`
-                : (category === 'comingSoon' || category === 'notMyCupOfTea')
-                    ? `<button onclick="requireAuth(() => { moveBackToWantToWatch(${movieId}); closeClusterContextMenu(); })">↺ Move to Want to Watch</button>`
-                    : '';
-
-            const menu = document.createElement('div');
-            menu.className = 'cluster-context-menu';
-            menu.innerHTML = `
-                <button onclick="window.open('https://www.imdb.com/title/${movie.imdbId || ''}/', '_blank'); closeClusterContextMenu();" ${!movie.imdbId ? 'disabled' : ''}>🔗 Open IMDb</button>
-                ${moveBtn}
-                <button onclick="requireAuth(() => { deleteMovie('${category}', ${movieId}); closeClusterContextMenu(); })">✕ Delete</button>
+            return `
+                <div class="flow-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')"` : ''}>
+                    ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
+                    <div class="flow-info" onclick="event.stopPropagation();">
+                        <div class="flow-info-title">${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}</div>
+                        <div class="flow-info-meta">${[ratingText, genreText].filter(Boolean).join(' · ')}</div>
+                        <div class="flow-info-plot">${plotText}</div>
+                        ${isAuthenticated() ? `
+                        <div class="flow-info-actions">
+                            ${buildLifecycleActionHtml(category, movie.id)}
+                            <button onclick="requireAuth(() => deleteMovie('${category}', ${movie.id}))" title="Delete">✕</button>
+                            ${buildMoveToSelectHtml(category, movie.id)}
+                        </div>` : ''}
+                    </div>
+                </div>
             `;
-
-            document.body.appendChild(menu);
-
-            const rect = event.target.getBoundingClientRect();
-            const menuWidth = 180;
-            let left = rect.left;
-            if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 12;
-            menu.style.left = `${left}px`;
-            menu.style.top = `${rect.bottom + 6}px`;
-
-            clusterContextMenuEl = menu;
-
-            setTimeout(() => {
-                document.addEventListener('click', closeClusterContextMenu, { once: true });
-            }, 0);
-        }
-
-        // ===== Pan & Zoom for the cluster viewport (Google Maps style: full
-        // overview first via clusterResetView, then zoom into a region and
-        // drag to pan around within it) =====
-        let clusterScale = 1;
-        let clusterTranslateX = 0;
-        let clusterTranslateY = 0;
-        let clusterLayoutBounds = null; // { width, height } of the packed layout, for fit-to-view
-        let clusterPanning = false;
-        let clusterPanStart = { x: 0, y: 0, translateX: 0, translateY: 0 };
-
-        function applyClusterTransform() {
-            const world = document.getElementById('watched-cluster-container');
-            if (world) {
-                world.style.transform = `translate(${clusterTranslateX}px, ${clusterTranslateY}px) scale(${clusterScale})`;
-            }
-        }
-
-        function clusterZoomBy(factor, centerX, centerY) {
-            const viewport = document.getElementById('watched-cluster-viewport');
-            const rect = viewport.getBoundingClientRect();
-            // Zoom centered on the given point (defaults to viewport center) so
-            // zooming in/out feels anchored, not like the content jumps around.
-            const cx = centerX !== undefined ? centerX - rect.left : rect.width / 2;
-            const cy = centerY !== undefined ? centerY - rect.top : rect.height / 2;
-
-            const newScale = Math.min(6, Math.max(0.05, clusterScale * factor));
-            const actualFactor = newScale / clusterScale;
-
-            // Keep the point under the cursor/center fixed in place while scaling
-            clusterTranslateX = cx - (cx - clusterTranslateX) * actualFactor;
-            clusterTranslateY = cy - (cy - clusterTranslateY) * actualFactor;
-            clusterScale = newScale;
-
-            applyClusterTransform();
-        }
-
-        // Fits the whole cluster inside the viewport - the "full overview" starting state
-        function clusterResetView() {
-            const viewport = document.getElementById('watched-cluster-viewport');
-            if (!viewport || !clusterLayoutBounds) return;
-
-            const vw = viewport.clientWidth;
-            const vh = viewport.clientHeight;
-            const padding = 0.9; // leave a little breathing room around the edge
-
-            const scale = Math.min(
-                (vw * padding) / clusterLayoutBounds.width,
-                (vh * padding) / clusterLayoutBounds.height,
-                1.5 // don't start zoomed in past 1:1-ish even for tiny collections
-            );
-
-            clusterScale = scale;
-            clusterTranslateX = (vw - clusterLayoutBounds.width * scale) / 2;
-            clusterTranslateY = (vh - clusterLayoutBounds.height * scale) / 2;
-            applyClusterTransform();
-        }
-
-        function setupClusterPanZoom() {
-            const viewport = document.getElementById('watched-cluster-viewport');
-            if (!viewport || viewport.dataset.panZoomReady) return; // only wire listeners once
-            viewport.dataset.panZoomReady = 'true';
-
-            viewport.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-                clusterZoomBy(factor, e.clientX, e.clientY);
-            }, { passive: false });
-
-            viewport.addEventListener('mousedown', (e) => {
-                clusterPanning = true;
-                viewport.style.cursor = 'grabbing';
-                clusterPanStart = { x: e.clientX, y: e.clientY, translateX: clusterTranslateX, translateY: clusterTranslateY };
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!clusterPanning) return;
-                clusterTranslateX = clusterPanStart.translateX + (e.clientX - clusterPanStart.x);
-                clusterTranslateY = clusterPanStart.translateY + (e.clientY - clusterPanStart.y);
-                applyClusterTransform();
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (clusterPanning) {
-                    clusterPanning = false;
-                    viewport.style.cursor = 'grab';
-                }
-            });
-
-            // Touch support (single-finger drag to pan)
-            let touchStart = null;
-            viewport.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
-                    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, translateX: clusterTranslateX, translateY: clusterTranslateY };
-                }
-            }, { passive: true });
-
-            viewport.addEventListener('touchmove', (e) => {
-                if (touchStart && e.touches.length === 1) {
-                    clusterTranslateX = touchStart.translateX + (e.touches[0].clientX - touchStart.x);
-                    clusterTranslateY = touchStart.translateY + (e.touches[0].clientY - touchStart.y);
-                    applyClusterTransform();
-                }
-            }, { passive: true });
-
-            viewport.addEventListener('touchend', () => { touchStart = null; });
-        }
-
-        // A 2D solar system, styled as a star-map of your taste. Three orbit
-        // zones, ranked - not threshold-banded. Fixed rating cutoffs (e.g.
-        // "8+") left zones wildly uneven in population depending on how your
-        // actual ratings happened to fall, so a zone could end up almost
-        // empty. Instead: sort everything by rating, fill Core Zone first
-        // with the top third, Mid Belt with the next third, Outer Rim with
-        // what's left - every zone is always roughly balanced by construction.
-        // Capped at 100 titles - a random sample when the filtered set is
-        // bigger, so a huge list (e.g. all of Watched) still feels
-        // representative instead of biased toward sort order.
-        const CLUSTER_MAX_PLANETS = 100;
-        const CLUSTER_PLANET_W = 27;
-        const CLUSTER_PLANET_H = 40; // ~2:3 poster aspect ratio
-        const CLUSTER_BANDS = [
-            { key: 'inner', label: 'Core Zone', color: '#ffd35c', radius: 150, speed: 0.32 },
-            { key: 'mid', label: 'Mid Belt', color: '#4fd8ff', radius: 235, speed: 0.17 },
-            { key: 'outer', label: 'Outer Rim', color: '#7d8fb3', radius: 320, speed: 0.09 },
-        ];
-
-        let clusterOrbitRAF = null;
-
-        function stopClusterOrbitAnimation() {
-            if (clusterOrbitRAF) {
-                cancelAnimationFrame(clusterOrbitRAF);
-                clusterOrbitRAF = null;
-            }
-        }
-
-        function startClusterOrbitAnimation() {
-            stopClusterOrbitAnimation();
-            const pivots = document.querySelectorAll('.orbit-planet-pivot');
-            if (pivots.length === 0) return;
-            const startTime = performance.now();
-            function tick(now) {
-                const elapsed = (now - startTime) / 1000;
-                pivots.forEach(el => {
-                    const angle = parseFloat(el.dataset.angle0) + parseFloat(el.dataset.speed) * elapsed;
-                    const radius = parseFloat(el.dataset.radius);
-                    el.style.transform = `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px)`;
-                });
-                clusterOrbitRAF = requestAnimationFrame(tick);
-            }
-            clusterOrbitRAF = requestAnimationFrame(tick);
         }
 
         async function renderWatchedCluster() {
-            const container = document.getElementById('watched-cluster-container');
+            const container = document.getElementById('flow-rows-container');
             const status = document.getElementById('watched-cluster-status');
 
             renderGroupChips();
             renderGenreChips();
 
-            // Shared with renderListView, so switching to Cluster never drops
-            // the active search/genre/rating filters - Cluster always needs
-            // ratings for band placement, so enrichment runs unconditionally.
+            // Shared with renderListView, so switching to Flow never drops the
+            // active search/genre/rating filters. Always enriched so hover
+            // info (rating/genres/plot) is ready instantly, no fetch-on-hover.
             const realMovies = await ensureActiveGroupsEnriched(status, null, true);
 
             const countEl = document.getElementById('list-count');
             if (countEl) countEl.textContent = realMovies.length;
 
             if (realMovies.length === 0) {
-                stopClusterOrbitAnimation();
                 container.innerHTML = '';
                 status.style.display = 'block';
                 status.textContent = 'Nothing here yet.';
@@ -2429,84 +2177,40 @@
             let movies = getFilteredSortedListMovies();
 
             if (movies.length === 0) {
-                stopClusterOrbitAnimation();
                 container.innerHTML = '';
                 status.style.display = 'block';
                 status.textContent = 'No titles match these filters.';
                 return;
             }
 
-            if (movies.length > CLUSTER_MAX_PLANETS) {
-                const shuffled = [...movies];
-                for (let i = shuffled.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                }
-                movies = shuffled.slice(0, CLUSTER_MAX_PLANETS);
+            if (movies.length > FLOW_MAX_ITEMS) {
+                movies = movies.slice(0, FLOW_MAX_ITEMS);
             }
 
             status.style.display = 'none';
 
-            // Rank-fill: Core Zone gets the top third by rating, Mid Belt the
-            // next third, Outer Rim whatever's left - never threshold-based,
-            // so no zone can end up sparse just because your ratings don't
-            // happen to split evenly across fixed cutoffs.
-            const byRating = [...movies].sort((a, b) => (b.clusterRating || 0) - (a.clusterRating || 0));
-            const total = byRating.length;
-            const innerCount = Math.ceil(total / 3);
-            const midCount = Math.ceil((total - innerCount) / 2);
-            const grouped = {
-                inner: byRating.slice(0, innerCount),
-                mid: byRating.slice(innerCount, innerCount + midCount),
-                outer: byRating.slice(innerCount + midCount),
-            };
+            const rows = [];
+            for (let i = 0; i < movies.length; i += FLOW_ITEMS_PER_ROW) {
+                rows.push(movies.slice(i, i + FLOW_ITEMS_PER_ROW));
+            }
 
-            const outerRadius = CLUSTER_BANDS[CLUSTER_BANDS.length - 1].radius;
-            const layoutSize = (outerRadius + CLUSTER_PLANET_H / 2 + 60) * 2;
-            const center = layoutSize / 2;
-
-            container.style.width = `${layoutSize}px`;
-            container.style.height = `${layoutSize}px`;
-
-            let html = `
-                <div class="radar-sweep" style="width: ${outerRadius * 2}px; height: ${outerRadius * 2}px; left: ${center - outerRadius}px; top: ${center - outerRadius}px;"></div>
-                <div class="cluster-sun" style="left: ${center}px; top: ${center}px;"></div>
-            `;
-
-            CLUSTER_BANDS.forEach(band => {
-                html += `
-                    <div class="orbit-ring" style="--ring-color: ${band.color}; width: ${band.radius * 2}px; height: ${band.radius * 2}px; left: ${center - band.radius}px; top: ${center - band.radius}px;"></div>
-                    <div class="orbit-zone-label" style="--ring-color: ${band.color}; left: ${center}px; top: ${center - band.radius}px;">${band.label}</div>
-                `;
-
-                const items = grouped[band.key];
-                const count = items.length;
-                items.forEach((movie, i) => {
-                    // Roughly evenly spaced around the ring, with a little random
-                    // jitter so it doesn't look robotically uniform.
-                    const jitter = count > 1 ? (Math.random() - 0.5) * (2 * Math.PI / count) * 0.6 : 0;
-                    const angle0 = (i / Math.max(1, count)) * Math.PI * 2 + jitter;
-                    const safeTitle = (movie.title || '').replace(/"/g, '&quot;');
-
-                    html += `
-                        <div class="orbit-planet-pivot" data-angle0="${angle0}" data-radius="${band.radius}" data-speed="${band.speed}" style="left: ${center}px; top: ${center}px;">
-                            <div class="cluster-bubble" style="--zone-color: ${band.color}; width: ${CLUSTER_PLANET_W}px; height: ${CLUSTER_PLANET_H}px; left: ${-CLUSTER_PLANET_W / 2}px; top: ${-CLUSTER_PLANET_H / 2}px;">
-                                <div class="cluster-bubble-tooltip">${safeTitle}${movie.year ? ` (${movie.year})` : ''} · ⭐ ${(movie.clusterRating || 0).toFixed(1)}</div>
-                                ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : `<div class="cluster-bubble-fallback">🎬</div>`}
-                                <div class="cluster-data-tag">${(movie.clusterRating || 0).toFixed(1)}</div>
-                                <button class="cluster-bubble-menu-btn" onclick="openClusterContextMenu(event, '${movie.category}', ${movie.id})">⋯</button>
-                            </div>
+            container.innerHTML = rows.map((rowMovies, rowIndex) => {
+                const direction = rowIndex % 2 === 0 ? 'normal' : 'reverse';
+                const cardsHtml = rowMovies.map(buildFlowCardHtml).join('');
+                const rowWidth = rowMovies.length * (FLOW_CARD_WIDTH + FLOW_CARD_GAP);
+                const duration = Math.max(25, rowWidth / FLOW_SPEED_PX_PER_SEC);
+                // The row's content is duplicated back-to-back so the loop from
+                // translateX(0) to translateX(-50%) is seamless - the second
+                // copy is already in place to pick up right where the first left off.
+                return `
+                    <div class="flow-row">
+                        <div class="flow-track" style="--flow-duration: ${duration}s; animation-direction: ${direction};">
+                            ${cardsHtml}
+                            ${cardsHtml}
                         </div>
-                    `;
-                });
-            });
-
-            container.innerHTML = html;
-
-            clusterLayoutBounds = { width: layoutSize, height: layoutSize };
-            setupClusterPanZoom();
-            clusterResetView(); // start zoomed out to show the full overview
-            startClusterOrbitAnimation();
+                    </div>
+                `;
+            }).join('');
         }
 
         // Moves a movie out of Watched, back to whichever category it came from.
