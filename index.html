@@ -64,39 +64,66 @@
             flex-wrap: wrap;
         }
 
-        /* A real dropdown overlay (position:fixed, positioned by JS in
-           openListNav/positionGroupChipsBar next to the List nav button)
-           instead of an inline bar that pushes page content down. Options
-           are stacked vertically - still the same pill button look, just
-           one per row - and scroll if there are more lists than fit. */
+        /* A picker-wheel, not a menu: positioned (by JS in openListNav /
+           positionGroupChipsBar) so its center - the fixed "slot" marked by
+           #group-chips-indicator - sits exactly at the List button's own
+           position. #group-chips-scroll is the actual scrollable/snapping
+           list of pill buttons underneath that fixed slot; whichever pill
+           is centered in it is the current selection (see the scroll
+           listener in openListNav's section of the script). */
         #group-chips-bar {
             position: fixed;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
             width: min(240px, 90vw);
+            height: 130px;
+            border-radius: 14px;
+            overflow: hidden;
             background: rgba(20, 20, 22, 0.98);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
-            overflow-y: auto;
-            max-height: 0;
             opacity: 0;
-            padding: 0 8px;
             pointer-events: none;
-            transform: translateY(-6px);
-            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.24s ease, padding 0.3s ease, transform 0.28s ease;
+            transform: scale(0.95);
+            transition: opacity 0.2s ease, transform 0.22s ease;
             z-index: 950;
         }
 
         #group-chips-bar.open {
-            max-height: min(360px, calc(100vh - 100px));
             opacity: 1;
-            padding: 8px;
             pointer-events: auto;
-            transform: translateY(0);
+            transform: scale(1);
+        }
+
+        #group-chips-scroll {
+            height: 100%;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            /* (window height - item height) / 2, so the first/last item can
+               still be scrolled all the way into the center slot. */
+            padding: 45px 8px;
+            scrollbar-width: none;
+        }
+
+        #group-chips-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Purely a visual marker for the fixed "current selection" slot -
+           doesn't move, doesn't intercept clicks, sits above the scrolling
+           list. */
+        #group-chips-indicator {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            top: 45px;
+            height: 40px;
+            border-radius: 980px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            pointer-events: none;
         }
 
         button {
@@ -540,7 +567,11 @@
         .card-hover-popup {
             position: fixed;
             width: min(210px, 90vw);
-            max-height: calc(100vh - 24px);
+            /* A fixed cap (not just "whatever fits the viewport") so the
+               popup always has the same nice proportions regardless of how
+               long a title's plot is - .movie-info scrolls internally for
+               anything that doesn't fit instead of the whole popup growing. */
+            max-height: min(400px, calc(100vh - 24px));
             display: flex;
             flex-direction: column;
             border-radius: 14px;
@@ -567,7 +598,11 @@
         .card-hover-popup .movie-poster {
             position: relative;
             width: 100%;
-            height: 225px;
+            /* Landscape crop (~16:9) - matches the backdrop image swapped in
+               by showHoverPopupForCard, and keeps the image from dominating
+               the now height-capped popup the way a full portrait poster
+               crop used to. */
+            height: 118px;
             flex-shrink: 0;
             border-radius: 0;
         }
@@ -587,6 +622,8 @@
 
         .card-hover-popup .movie-title {
             font-size: 1.05em;
+            display: block;
+            overflow: visible;
             -webkit-line-clamp: unset;
         }
 
@@ -597,6 +634,13 @@
         .card-hover-popup .movie-info-plot {
             font-size: 0.8em;
             line-height: 1.5;
+            display: block;
+            /* The base rule clips the plot to 3 lines via display:-webkit-box
+               + overflow:hidden - that overflow:hidden clips BEFORE it ever
+               reaches .movie-info's own overflow-y:auto below, so the parent
+               never even sees this as scrollable content. Both need
+               resetting here, not just line-clamp. */
+            overflow: visible;
             -webkit-line-clamp: unset;
         }
 
@@ -824,7 +868,10 @@
         <div id="list-view">
 
             <div class="category">
-                <div id="group-chips-bar"></div>
+                <div id="group-chips-bar">
+                    <div id="group-chips-indicator"></div>
+                    <div id="group-chips-scroll"></div>
+                </div>
 
                 <div class="category-header">
                     <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
@@ -1009,7 +1056,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.12.0";
+        const APP_VERSION = "v23.13.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1663,6 +1710,22 @@
                 popup.style.cursor = 'default';
             }
 
+            // The small card always shows its portrait poster (fits a
+            // compact tile best); the much wider popup swaps in the
+            // landscape backdrop image when one's cached, since it fits the
+            // popup's own wide/short image area far better than a cropped
+            // portrait poster would.
+            const posterEl = popup.querySelector('.movie-poster');
+            const backdropUrl = posterEl?.dataset.backdrop;
+            if (backdropUrl) {
+                const img = posterEl.querySelector('img');
+                if (img) {
+                    img.src = backdropUrl;
+                } else {
+                    posterEl.innerHTML = `<img src="${backdropUrl}" alt="">`;
+                }
+            }
+
             const cardRect = card.getBoundingClientRect();
 
             // Lay the popup out at its real final size/position (with
@@ -1769,7 +1832,7 @@
 
             return `
                 <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
-                    <div class="movie-poster">
+                    <div class="movie-poster" ${movie.backdrop ? `data-backdrop="${movie.backdrop}"` : ''}>
                         ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
@@ -1847,16 +1910,33 @@
             return (movieData.listLabels && movieData.listLabels[group]) || DEFAULT_LIST_LABELS[group] || group;
         }
 
+        // Fixed geometry of the picker wheel - CSS (#group-chips-bar,
+        // #group-chips-scroll, #group-chips-indicator) and this positioning/
+        // scroll math must agree on these, so they're named constants
+        // instead of repeated magic numbers.
+        const GROUP_PICKER_WINDOW_HEIGHT = 130;
+        const GROUP_PICKER_ITEM_HEIGHT = 40;
+
         // Single-select: picking a list always replaces whichever one was
         // active, like a radio group - never combines multiple lists.
+        // Direct click on a pill is the "fast path": select it and close,
+        // same as clicking any other menu item.
         function toggleGroupFilter(group) {
-            activeGroups.clear();
-            activeGroups.add(group);
-            groupChipsOpen = false; // picking a choice closes the dropdown, like a real <select>
+            selectGroupSilently(group);
+            groupChipsOpen = false;
             renderCurrentDisplay();
         }
 
-        // The dropdown is collapsed by default and only appears while
+        // The scroll-driven path (see the scroll listener below): updates
+        // the active list without closing the wheel, so you can keep
+        // scrolling and watch the list underneath update live.
+        function selectGroupSilently(group) {
+            if (activeGroups.has(group) && activeGroups.size === 1) return;
+            activeGroups.clear();
+            activeGroups.add(group);
+        }
+
+        // The wheel is collapsed by default and only appears while
         // groupChipsOpen is true - toggled by the top-nav List button
         // (openListNav), not reset by ordinary re-renders.
         let groupChipsOpen = false;
@@ -1872,21 +1952,38 @@
             }
             const bar = document.getElementById('group-chips-bar');
             if (bar) bar.classList.toggle('open', groupChipsOpen);
-            if (groupChipsOpen) positionGroupChipsBar();
+            if (groupChipsOpen) {
+                positionGroupChipsBar();
+                scrollGroupChipsToActive();
+            }
         }
 
-        // Anchors the dropdown to the List nav button, like a native <select>
-        // popping open beneath it, clamped so it never runs off-screen.
+        // Anchors the wheel so its center - the fixed slot marked by
+        // #group-chips-indicator - lines up with the List button's own
+        // vertical center, clamped so it never runs off-screen.
         function positionGroupChipsBar() {
             const bar = document.getElementById('group-chips-bar');
             const btn = document.getElementById('list-nav-btn');
             if (!bar || !btn) return;
             const rect = btn.getBoundingClientRect();
             const width = bar.offsetWidth || 240;
+            const btnCenterY = rect.top + rect.height / 2;
             const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
-            const top = Math.min(rect.bottom + 8, window.innerHeight - 60);
+            const top = Math.max(12, Math.min(btnCenterY - GROUP_PICKER_WINDOW_HEIGHT / 2, window.innerHeight - GROUP_PICKER_WINDOW_HEIGHT - 12));
             bar.style.left = `${left}px`;
             bar.style.top = `${top}px`;
+        }
+
+        // Scrolls the wheel so the currently active group sits centered in
+        // the fixed slot - opening it never requires hunting for what's
+        // already selected.
+        function scrollGroupChipsToActive() {
+            const scroller = document.getElementById('group-chips-scroll');
+            if (!scroller) return;
+            const activeGroup = [...activeGroups][0];
+            const btn = scroller.querySelector(`button[data-group="${CSS.escape(activeGroup || '')}"]`);
+            if (!btn) return;
+            scroller.scrollTop = btn.offsetTop + btn.offsetHeight / 2 - scroller.clientHeight / 2;
         }
 
         function closeGroupChipsBar() {
@@ -1902,23 +1999,60 @@
             if (bar && (bar.contains(e.target) || e.target.closest('#list-nav-btn'))) return;
             closeGroupChipsBar();
         });
-        window.addEventListener('scroll', closeGroupChipsBar, true);
+        // Outer PAGE scroll invalidates the wheel's anchored position and
+        // should close it - but scrolling the wheel itself is the whole
+        // interaction, so that has to be excluded here, not treated as a
+        // close signal.
+        window.addEventListener('scroll', (e) => {
+            if (e.target && e.target.id === 'group-chips-scroll') return;
+            closeGroupChipsBar();
+        }, true);
         window.addEventListener('resize', closeGroupChipsBar);
 
+        // Debounced: commits a selection once scrolling has actually
+        // settled on a centered item, rather than on every scroll tick.
+        let groupChipsScrollTimer = null;
+        document.getElementById('group-chips-scroll')?.addEventListener('scroll', () => {
+            clearTimeout(groupChipsScrollTimer);
+            groupChipsScrollTimer = setTimeout(() => {
+                const scroller = document.getElementById('group-chips-scroll');
+                if (!scroller || !groupChipsOpen) return;
+                const slotCenter = scroller.getBoundingClientRect().top + GROUP_PICKER_WINDOW_HEIGHT / 2;
+                let closest = null, closestDist = Infinity;
+                scroller.querySelectorAll('button[data-group]').forEach(btn => {
+                    const r = btn.getBoundingClientRect();
+                    const dist = Math.abs((r.top + r.height / 2) - slotCenter);
+                    if (dist < closestDist) { closestDist = dist; closest = btn; }
+                });
+                if (closest) {
+                    selectGroupSilently(closest.dataset.group);
+                    renderCurrentDisplay(); // renderGroupChips() (called from here) preserves scrollTop - see below
+                }
+            }, 120);
+        });
+
         function renderGroupChips() {
-            const container = document.getElementById('group-chips-bar');
-            if (!container) return;
-            container.classList.toggle('open', groupChipsOpen);
-            container.innerHTML = getAllGroups().map(group => {
+            const bar = document.getElementById('group-chips-bar');
+            const scroller = document.getElementById('group-chips-scroll');
+            if (!bar || !scroller) return;
+            bar.classList.toggle('open', groupChipsOpen);
+
+            // The scroll-settle handler above calls back into this via
+            // renderCurrentDisplay(), so a naive innerHTML rebuild would
+            // yank the wheel back to scrollTop 0 mid-scroll. Same item
+            // order every time, so just restoring the raw offset works.
+            const prevScrollTop = scroller.scrollTop;
+            scroller.innerHTML = getAllGroups().map(group => {
                 const active = activeGroups.has(group);
                 const count = (movieData[group] || []).length;
                 const label = escapeHtml(getListLabel(group));
                 return `
-                    <button type="button" onclick="toggleGroupFilter('${group}')" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 10px 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; text-align: left; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                    <button type="button" data-group="${group}" onclick="toggleGroupFilter('${group}')" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: ${GROUP_PICKER_ITEM_HEIGHT}px; box-sizing: border-box; padding: 0 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; text-align: left; scroll-snap-align: center; flex-shrink: 0; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
                         ${GROUP_ICONS[group] || '📁'} ${label} <span style="opacity: 0.7; margin-left: auto;">${count}</span>
                     </button>
                 `;
             }).join('');
+            scroller.scrollTop = prevScrollTop;
 
             const title = document.getElementById('list-view-title');
             if (title) {
@@ -2184,7 +2318,7 @@
                         m.genreNames = undefined;
                     }
                 });
-                const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined).length;
+                const missing = realMovies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined || m.backdrop === undefined).length;
                 if (missing > 0 && statusEl) {
                     statusEl.style.display = 'block';
                     statusEl.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
@@ -2208,7 +2342,12 @@
             renderGroupChips();
             renderGenreChips();
 
-            const realMovies = await ensureActiveGroupsEnriched(status, () => myRenderToken === watchedGridRenderToken, false);
+            // forceAlways: true - always enrich so the hover popup's rating/
+            // genres/plot/backdrop are ready instantly. This used to be
+            // conditional on the rating/genre filter UI being in use, but
+            // that UI is gone now that every card always shows this data on
+            // hover, not just when filtering by it.
+            const realMovies = await ensureActiveGroupsEnriched(status, () => myRenderToken === watchedGridRenderToken, true);
 
             const countEl = document.getElementById('list-count');
             if (countEl) countEl.textContent = realMovies.length;
@@ -2322,7 +2461,8 @@
                 return {
                     rating: pick.vote_average,
                     genreNames: (pick.genre_ids || []).map(id => genreMap[id]).filter(Boolean),
-                    overview: pick.overview || ''
+                    overview: pick.overview || '',
+                    backdrop: pick.backdrop_path ? `${TMDB_IMAGE_BASE}${pick.backdrop_path}` : null
                 };
             } catch (error) {
                 console.error('Enrichment fetch failed for', movie.title, error);
@@ -2337,7 +2477,7 @@
         // version. Only fetches for movies missing either field; persists via
         // saveData() so this genuinely only happens once per movie, ever.
         async function ensureWatchedRatings(movies, onProgress) {
-            const needsEnrichment = movies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined);
+            const needsEnrichment = movies.filter(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined || m.backdrop === undefined);
             if (needsEnrichment.length === 0) return;
 
             let done = 0;
@@ -2349,6 +2489,7 @@
                     movie.clusterRating = movie.clusterRating !== undefined ? movie.clusterRating : (info?.rating || 5.0);
                     movie.genreNames = movie.genreNames !== undefined ? movie.genreNames : (info?.genreNames || []);
                     movie.overview = movie.overview !== undefined ? movie.overview : (info?.overview || '');
+                    movie.backdrop = movie.backdrop !== undefined ? movie.backdrop : (info?.backdrop || null);
                     done++;
                     if (onProgress) onProgress(done, needsEnrichment.length);
                 }));
@@ -2650,6 +2791,7 @@
         // it forever, the dropdown adds it directly to a chosen list.
         function buildQuickPickCardHtml(movie) {
             const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+            const backdrop = movie.backdrop_path ? `${TMDB_IMAGE_BASE}${movie.backdrop_path}` : null;
             const year = movie.release_date ? movie.release_date.split('-')[0] : '';
             const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
             const safeTitle = escapeHtml(movie.title);
@@ -2660,7 +2802,7 @@
 
             return `
                 <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
-                    <div class="movie-poster">
+                    <div class="movie-poster" ${backdrop ? `data-backdrop="${backdrop}"` : ''}>
                         ${poster ? `<img src="${poster}" alt="${safeTitle}">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
@@ -2994,6 +3136,7 @@
 
             grid.innerHTML = forYouPool.map(movie => {
                 const poster = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+                const backdrop = movie.backdrop_path ? `${TMDB_IMAGE_BASE}${movie.backdrop_path}` : null;
                 const year = movie.release_date ? movie.release_date.split('-')[0] : '';
                 const imdbLink = movie.imdbId ? `https://www.imdb.com/title/${movie.imdbId}/` : null;
                 const safeTitle = escapeHtml(movie.title);
@@ -3002,7 +3145,7 @@
 
                 return `
                     <div class="movie-card" data-tmdb-id="${movie.id}" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
-                        <div class="movie-poster">
+                        <div class="movie-poster" ${backdrop ? `data-backdrop="${backdrop}"` : ''}>
                             ${poster ? `<img src="${poster}" alt="${safeTitle}">` : '🎬'}
                         </div>
                         <div class="movie-info" onclick="event.stopPropagation();">
