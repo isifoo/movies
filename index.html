@@ -64,29 +64,38 @@
             flex-wrap: wrap;
         }
 
-        /* Collapsed by default; openListNav() toggles the .open class, which
-           animates it open like a dropdown instead of an abrupt display flip. */
+        /* A real dropdown overlay (position:fixed, positioned by JS in
+           openListNav/positionGroupChipsBar next to the List nav button)
+           instead of an inline bar that pushes page content down. Options
+           are stacked vertically - still the same pill button look, just
+           one per row - and scroll if there are more lists than fit. */
         #group-chips-bar {
+            position: fixed;
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px 14px;
-            align-items: center;
-            background: rgba(255,255,255,0.03);
-            border-radius: 10px;
-            overflow: hidden;
+            flex-direction: column;
+            gap: 6px;
+            width: min(240px, 90vw);
+            background: rgba(20, 20, 22, 0.98);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+            overflow-y: auto;
             max-height: 0;
             opacity: 0;
-            padding: 0 12px;
-            margin-bottom: 0;
+            padding: 0 8px;
+            pointer-events: none;
             transform: translateY(-6px);
-            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease, padding 0.35s ease, margin-bottom 0.35s ease, transform 0.3s ease;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.24s ease, padding 0.3s ease, transform 0.28s ease;
+            z-index: 950;
         }
 
         #group-chips-bar.open {
-            max-height: 300px;
+            max-height: min(360px, calc(100vh - 100px));
             opacity: 1;
-            padding: 12px;
-            margin-bottom: 15px;
+            padding: 8px;
+            pointer-events: auto;
             transform: translateY(0);
         }
 
@@ -787,7 +796,7 @@
         </div>
 
         <div class="controls">
-            <button onclick="openListNav()">📋 List</button>
+            <button id="list-nav-btn" onclick="openListNav()">📋 List</button>
             <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none;">🎬 Add Title</button>
             <button onclick="openQuickPickModal()">🎲 Quick Pick</button>
             <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">🎯 Smart Recs</button>
@@ -844,17 +853,6 @@
                         <option value="rating-asc">Sort: Rating low-high</option>
                         <option value="title-asc">Sort: Title A-Z</option>
                     </select>
-                    <label style="font-size: 0.8em; color: rgba(245,245,247,0.6); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-                        Rating
-                        <input type="number" class="compact-number" id="watched-filter-rating-min" min="0" max="10" step="0.1" placeholder="0" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderCurrentDisplay()">
-                        to
-                        <input type="number" class="compact-number" id="watched-filter-rating-max" min="0" max="10" step="0.1" placeholder="10" style="width: 44px; padding: 8px 4px; text-align: center;" oninput="renderCurrentDisplay()">
-                    </label>
-                    <button type="button" class="secondary" onclick="resetWatchedFilters()" style="padding: 6px 14px; font-size: 0.8em; white-space: nowrap;">Reset</button>
-
-                    <div style="flex-basis: 100%; height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0;"></div>
-
-                    <div id="watched-genre-chips" style="display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;"></div>
                 </div>
                 <div id="watched-filter-status" style="font-size: 0.8em; color: rgba(245,245,247,0.4); margin-bottom: 10px; display: none;"></div>
 
@@ -1011,7 +1009,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.11.0";
+        const APP_VERSION = "v23.12.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1849,16 +1847,16 @@
             return (movieData.listLabels && movieData.listLabels[group]) || DEFAULT_LIST_LABELS[group] || group;
         }
 
+        // Single-select: picking a list always replaces whichever one was
+        // active, like a radio group - never combines multiple lists.
         function toggleGroupFilter(group) {
-            if (activeGroups.has(group)) {
-                if (activeGroups.size > 1) activeGroups.delete(group);
-            } else {
-                activeGroups.add(group);
-            }
+            activeGroups.clear();
+            activeGroups.add(group);
+            groupChipsOpen = false; // picking a choice closes the dropdown, like a real <select>
             renderCurrentDisplay();
         }
 
-        // The chip row is collapsed by default and only appears while
+        // The dropdown is collapsed by default and only appears while
         // groupChipsOpen is true - toggled by the top-nav List button
         // (openListNav), not reset by ordinary re-renders.
         let groupChipsOpen = false;
@@ -1874,7 +1872,38 @@
             }
             const bar = document.getElementById('group-chips-bar');
             if (bar) bar.classList.toggle('open', groupChipsOpen);
+            if (groupChipsOpen) positionGroupChipsBar();
         }
+
+        // Anchors the dropdown to the List nav button, like a native <select>
+        // popping open beneath it, clamped so it never runs off-screen.
+        function positionGroupChipsBar() {
+            const bar = document.getElementById('group-chips-bar');
+            const btn = document.getElementById('list-nav-btn');
+            if (!bar || !btn) return;
+            const rect = btn.getBoundingClientRect();
+            const width = bar.offsetWidth || 240;
+            const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
+            const top = Math.min(rect.bottom + 8, window.innerHeight - 60);
+            bar.style.left = `${left}px`;
+            bar.style.top = `${top}px`;
+        }
+
+        function closeGroupChipsBar() {
+            if (!groupChipsOpen) return;
+            groupChipsOpen = false;
+            document.getElementById('group-chips-bar')?.classList.remove('open');
+        }
+
+        // Click-outside-to-close, like any other dropdown/select.
+        document.addEventListener('click', (e) => {
+            if (!groupChipsOpen) return;
+            const bar = document.getElementById('group-chips-bar');
+            if (bar && (bar.contains(e.target) || e.target.closest('#list-nav-btn'))) return;
+            closeGroupChipsBar();
+        });
+        window.addEventListener('scroll', closeGroupChipsBar, true);
+        window.addEventListener('resize', closeGroupChipsBar);
 
         function renderGroupChips() {
             const container = document.getElementById('group-chips-bar');
@@ -1885,8 +1914,8 @@
                 const count = (movieData[group] || []).length;
                 const label = escapeHtml(getListLabel(group));
                 return `
-                    <button type="button" onclick="toggleGroupFilter('${group}')" style="padding: 8px 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
-                        ${GROUP_ICONS[group] || '📁'} ${label} <span style="opacity: 0.7;">${count}</span>
+                    <button type="button" onclick="toggleGroupFilter('${group}')" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 10px 16px; border-radius: 980px; font-size: 0.85em; cursor: pointer; text-align: left; background: ${active ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${active ? 'rgba(76,175,80,0.6)' : 'rgba(255,255,255,0.12)'}; color: ${active ? '#8affa0' : '#f5f5f7'};">
+                        ${GROUP_ICONS[group] || '📁'} ${label} <span style="opacity: 0.7; margin-left: auto;">${count}</span>
                     </button>
                 `;
             }).join('');
@@ -1894,13 +1923,8 @@
             const title = document.getElementById('list-view-title');
             if (title) {
                 const countEl = `<span class="count" id="list-count">0</span>`;
-                if (activeGroups.size === 1) {
-                    const only = [...activeGroups][0];
-                    title.innerHTML = `${GROUP_ICONS[only] || '📁'} ${escapeHtml(getListLabel(only))} ${countEl}`;
-                } else {
-                    const labels = [...activeGroups].map(g => getListLabel(g)).join(' + ');
-                    title.innerHTML = `📋 ${escapeHtml(labels)} ${countEl}`;
-                }
+                const only = [...activeGroups][0] || 'wantToWatch';
+                title.innerHTML = `${GROUP_ICONS[only] || '📁'} ${escapeHtml(getListLabel(only))} ${countEl}`;
             }
         }
 
@@ -2008,17 +2032,6 @@
             saveData();
             renderGenreChips();
             renderGenreAdminChips();
-            renderCurrentDisplay();
-        }
-
-        function resetWatchedFilters() {
-            document.getElementById('watched-filter-groupby').value = 'none';
-            document.getElementById('watched-filter-sort').value = 'year-desc';
-            document.getElementById('watched-filter-rating-min').value = '';
-            document.getElementById('watched-filter-rating-max').value = '';
-            document.getElementById('watched-filter-search').value = '';
-            activeGenreFilters.clear();
-            renderGenreChips();
             renderCurrentDisplay();
         }
 
