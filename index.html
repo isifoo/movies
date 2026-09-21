@@ -644,6 +644,26 @@
             -webkit-line-clamp: unset;
         }
 
+        /* Pinned footer: ✕ and "Move to..." always stay reachable at the
+           bottom of the popup, even while the plot text above scrolls -
+           margin-top:auto keeps it at the bottom when content is short,
+           position:sticky keeps it in view once content overflows and
+           .movie-info starts scrolling. The negative side/bottom margins
+           cancel .movie-info's own padding so this bar spans full-width
+           with its own opaque background, so scrolled-under text never
+           shows through it. */
+        .card-hover-popup .movie-info-actions {
+            position: sticky;
+            bottom: 0;
+            margin-top: auto;
+            margin-left: -14px;
+            margin-right: -14px;
+            margin-bottom: -14px;
+            padding: 10px 14px;
+            background: rgba(18, 18, 20, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
         .card-hover-popup .movie-info-actions button {
             font-size: 22px;
         }
@@ -1056,7 +1076,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.13.0";
+        const APP_VERSION = "v23.14.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1792,7 +1812,12 @@
             hoverPopupOpenCard = card;
         }, true);
 
-        window.addEventListener('scroll', () => {
+        // Outer PAGE scroll invalidates the popup's anchored position and
+        // should close it - but scrolling a long plot INSIDE the popup
+        // (.movie-info has its own overflow-y:auto) is normal use of the
+        // popup, not a signal to close it, so that has to be excluded here.
+        window.addEventListener('scroll', (e) => {
+            if (hoverPopupEl && e.target && hoverPopupEl.contains(e.target)) return;
             if (hoverPopupEl) hoverPopupEl.classList.remove('active');
         }, true);
         window.addEventListener('resize', () => {
