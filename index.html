@@ -358,29 +358,35 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .movie-card:hover {
-            transform: translateY(-4px) scale(1.04);
-            z-index: 30;
-        }
-
         .movie-card[onclick] {
             cursor: pointer;
         }
 
-        .movie-card[onclick]:hover .movie-poster::after {
-            content: '🔗 IMDb';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            color: #f5f5f7;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 0.7em;
-            z-index: 10;
-            font-weight: 500;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Cosmetic hover-only affordances - scoped to real hover+precise-
+           pointer devices (mouse/trackpad) so a tap on a touch device (iPad)
+           never leaves a card stuck looking "hovered". Touch's own tap
+           interaction is handled separately in JS - see IS_TOUCH below. */
+        @media (hover: hover) and (pointer: fine) {
+            .movie-card:hover {
+                transform: translateY(-4px) scale(1.04);
+                z-index: 30;
+            }
+
+            .movie-card[onclick]:hover .movie-poster::after {
+                content: '🔗 IMDb';
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(20px);
+                color: #f5f5f7;
+                padding: 6px 10px;
+                border-radius: 6px;
+                font-size: 0.7em;
+                z-index: 10;
+                font-weight: 500;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
         }
 
         .movie-poster {
@@ -404,9 +410,11 @@
             transition: box-shadow 0.3s, border-color 0.3s;
         }
 
-        .movie-card:hover .movie-poster {
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-            border-color: rgba(255, 255, 255, 0.12);
+        @media (hover: hover) and (pointer: fine) {
+            .movie-card:hover .movie-poster {
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+                border-color: rgba(255, 255, 255, 0.12);
+            }
         }
 
         .movie-poster img {
@@ -439,12 +447,9 @@
             gap: 4px;
         }
 
-        .movie-card:hover .movie-info {
-            visibility: visible;
-            opacity: 1;
-            pointer-events: auto;
-            transition-delay: 0s;
-        }
+        /* The in-card .movie-info never reveals itself in place anymore -
+           hovering opens the much bigger #card-hover-popup below instead,
+           which is what actually shows title/rating/genres/plot/actions. */
 
         .movie-info-title {
             text-align: center;
@@ -514,6 +519,79 @@
 
         .movie-info-actions select {
             font-size: 0.68em;
+        }
+
+        /* The big hover popup - a single shared element, repositioned and
+           re-filled with a clone of whichever card is hovered (Grid, Flow,
+           Quick Pick, Smart Recs). It lives in document.body via
+           position:fixed so no ancestor's overflow/clipping (the Flow row's
+           overflow-x:hidden in particular) can cut it off, and it's sized
+           generously so title/rating/genres/plot show in full instead of
+           being clamped down to fit a small card. */
+        .card-hover-popup {
+            position: fixed;
+            width: min(280px, 90vw);
+            max-height: calc(100vh - 24px);
+            display: flex;
+            flex-direction: column;
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgb(16, 16, 18);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.92);
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s 0.15s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .card-hover-popup.active {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+            pointer-events: auto;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+
+        .card-hover-popup .movie-poster {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            flex-shrink: 0;
+            border-radius: 0;
+        }
+
+        .card-hover-popup .movie-info {
+            position: relative;
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            border-radius: 0;
+            background: rgba(18, 18, 20, 0.98);
+            padding: 14px;
+            gap: 8px;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .card-hover-popup .movie-title {
+            font-size: 1.05em;
+            -webkit-line-clamp: unset;
+        }
+
+        .card-hover-popup .movie-info-meta {
+            font-size: 0.85em;
+        }
+
+        .card-hover-popup .movie-info-plot {
+            font-size: 0.8em;
+            line-height: 1.5;
+            -webkit-line-clamp: unset;
+        }
+
+        .card-hover-popup .movie-info-actions button {
+            font-size: 22px;
         }
 
         .thumbs-down-icon {
@@ -932,7 +1010,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.7.0";
+        const APP_VERSION = "v23.9.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1443,6 +1521,7 @@
         // the chosen list, replacing the old fixed Want-to-Watch/Watched
         // buttons on both suggestion types.
         function addSuggestionToList(source, tmdbId, targetList) {
+            hideHoverPopupNow(); // the card this action came from is about to be removed/re-rendered
             const lookup = source === 'quickPick' ? quickPickLookup : forYouLookup;
             const pick = lookup[tmdbId];
             if (!pick) {
@@ -1477,6 +1556,7 @@
 
         function moveMovieToList(fromCategory, movieId, toKey) {
             if (!toKey || toKey === fromCategory) return;
+            hideHoverPopupNow(); // the card this action came from is about to be removed/re-rendered
             const movie = (movieData[fromCategory] || []).find(m => m.id === movieId);
             if (!movie) return;
             movieData[fromCategory] = movieData[fromCategory].filter(m => m.id !== movieId);
@@ -1499,6 +1579,156 @@
                 ${buildMoveToSelectHtml(category, movieId)}
             `;
         }
+
+        // Tracks whether the current pointer is touch-only (no real hover,
+        // e.g. iPad with a finger) vs. mouse/trackpad. iPadOS reports this
+        // live and correctly per input method - a Magic Keyboard trackpad
+        // still reports hover:hover/pointer:fine, only a finger flips it -
+        // so this stays a live media query instead of a one-time check.
+        const touchMQ = window.matchMedia('(hover: none), (pointer: coarse)');
+        let IS_TOUCH = touchMQ.matches;
+        touchMQ.addEventListener('change', e => { IS_TOUCH = e.matches; });
+
+        // ===== Card hover popup =====
+        // One shared overlay element, fixed-positioned on document.body so
+        // it's never clipped by any card/row/modal's own overflow (the Flow
+        // row's overflow-x:hidden in particular used to crop the old in-card
+        // hover reveal). Filled with a clone of whichever .movie-card the
+        // mouse is over and sized much bigger so all of the title, rating,
+        // genres and plot are visible at once instead of clamped down.
+        //
+        // On a real mouse/trackpad it opens on hover, as usual. On touch
+        // (no hover at all) a tap can't "hover" first, so it's re-purposed
+        // as a two-step tap: the first tap on a card opens this popup
+        // instead of immediately following its IMDb link; tapping that same
+        // card again (or an action inside the popup) behaves normally, and
+        // tapping anywhere else closes it.
+        let hoverPopupEl = null;
+        let hoverPopupHideTimer = null;
+        let hoverPopupOpenCard = null; // the small source .movie-card currently previewed (touch only)
+
+        function ensureHoverPopupEl() {
+            if (hoverPopupEl) return hoverPopupEl;
+            hoverPopupEl = document.createElement('div');
+            hoverPopupEl.className = 'card-hover-popup';
+            hoverPopupEl.addEventListener('mouseenter', cancelHoverPopupHide);
+            hoverPopupEl.addEventListener('mouseleave', scheduleHoverPopupHide);
+            document.body.appendChild(hoverPopupEl);
+            return hoverPopupEl;
+        }
+
+        function cancelHoverPopupHide() {
+            if (hoverPopupHideTimer) {
+                clearTimeout(hoverPopupHideTimer);
+                hoverPopupHideTimer = null;
+            }
+        }
+
+        function scheduleHoverPopupHide() {
+            cancelHoverPopupHide();
+            hoverPopupHideTimer = setTimeout(hideHoverPopupNow, 200);
+        }
+
+        function hideHoverPopupNow() {
+            cancelHoverPopupHide();
+            if (hoverPopupEl) hoverPopupEl.classList.remove('active');
+            hoverPopupOpenCard = null;
+        }
+
+        function positionHoverPopup(card, popup) {
+            const rect = card.getBoundingClientRect();
+            const width = popup.offsetWidth || 280;
+            const maxHeight = window.innerHeight - 24;
+            let left = rect.left + rect.width / 2 - width / 2;
+            left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+            let top = rect.top + rect.height / 2 - Math.min(popup.offsetHeight || 460, maxHeight) / 2;
+            top = Math.max(12, Math.min(top, window.innerHeight - 12 - (popup.offsetHeight || 0)));
+            popup.style.left = `${left}px`;
+            popup.style.top = `${Math.max(12, top)}px`;
+        }
+
+        function showHoverPopupForCard(card) {
+            const popup = ensureHoverPopupEl();
+            cancelHoverPopupHide();
+
+            // Only the poster+info inner content is cloned (not the outer
+            // .movie-card box), so the popup's own sizing/overrides apply
+            // instead of the small fixed 169px card height.
+            popup.innerHTML = card.innerHTML;
+            const imdbOnclick = card.getAttribute('onclick');
+            if (imdbOnclick) {
+                popup.setAttribute('onclick', imdbOnclick);
+                popup.style.cursor = 'pointer';
+            } else {
+                popup.removeAttribute('onclick');
+                popup.style.cursor = 'default';
+            }
+
+            popup.classList.add('active');
+            // Position after layout so offsetWidth/offsetHeight reflect the
+            // freshly-cloned content's real size.
+            requestAnimationFrame(() => positionHoverPopup(card, popup));
+        }
+
+        document.addEventListener('mouseover', (e) => {
+            if (IS_TOUCH) return;
+            const card = e.target.closest('.movie-card');
+            if (card) showHoverPopupForCard(card);
+        });
+
+        document.addEventListener('mouseout', (e) => {
+            if (IS_TOUCH) return;
+            if (e.target.closest('.movie-card')) scheduleHoverPopupHide();
+        });
+
+        // Touch: intercept the FIRST tap on a card (capture phase, so this
+        // runs before the card's own inline onclick="window.open(imdb)")
+        // and show the popup instead of navigating away. A second tap on
+        // the same card, or any tap inside the popup itself (poster, ✕,
+        // Move to...), is left alone to behave normally.
+        document.addEventListener('click', (e) => {
+            if (!IS_TOUCH) return;
+            if (e.target.closest('.card-hover-popup')) return; // let the popup's own click behavior run
+
+            const card = e.target.closest('.movie-card');
+            if (!card) {
+                hideHoverPopupNow();
+                return;
+            }
+            if (hoverPopupOpenCard === card) {
+                // Confirming tap - close the preview and let this click proceed normally.
+                hideHoverPopupNow();
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            showHoverPopupForCard(card);
+            hoverPopupOpenCard = card;
+        }, true);
+
+        window.addEventListener('scroll', () => {
+            if (hoverPopupEl) hoverPopupEl.classList.remove('active');
+        }, true);
+        window.addEventListener('resize', () => {
+            if (hoverPopupEl) hoverPopupEl.classList.remove('active');
+        });
+
+        // Touch: a Flow row's self-scroll can't be slowed by hovering (there
+        // is no hover), so instead pause it for as long as a finger is down
+        // inside that row, making it possible to actually tap a title while
+        // it's mid-scroll.
+        document.addEventListener('touchstart', (e) => {
+            if (!IS_TOUCH) return;
+            const track = e.target.closest('.flow-track');
+            if (track) track.style.animationPlayState = 'paused';
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+            if (!IS_TOUCH) return;
+            document.querySelectorAll('.flow-track').forEach(track => {
+                setTimeout(() => { track.style.animationPlayState = ''; }, 400);
+            });
+        }, { passive: true });
 
         // The single card builder shared by Grid, Flow, Quick Pick and Smart
         // Recs (Flow just renders it inside a horizontally-scrolling track -
@@ -2234,6 +2464,7 @@
         let quickPickHidden = loadQuickPickHidden();
 
         function hideQuickPickForever(tmdbId) {
+            hideHoverPopupNow(); // the card this action came from is about to be removed/re-rendered
             if (!quickPickHidden.includes(tmdbId)) {
                 quickPickHidden.push(tmdbId);
                 saveQuickPickHidden(quickPickHidden);
@@ -2752,6 +2983,7 @@
         }
 
         function hideForYouCard(tmdbId) {
+            hideHoverPopupNow(); // the card this action came from is about to be removed/re-rendered
             if (!forYouHidden.includes(tmdbId)) {
                 forYouHidden.push(tmdbId);
                 saveForYouHidden();
@@ -3061,6 +3293,7 @@
 
         // Delete movie
         function deleteMovie(category, movieId) {
+            hideHoverPopupNow(); // the card this action came from is about to be removed/re-rendered
             movieData[category] = movieData[category].filter(m => m.id !== movieId);
             saveData();
             // Cluster is available for any group combination now, not just
