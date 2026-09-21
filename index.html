@@ -46,9 +46,10 @@
             background-position: center;
             background-repeat: no-repeat;
             border-radius: 18px;
-            padding: 22px 28px;
+            height: 122px;
+            padding: 0 28px;
             margin: 0 0 40px 0;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .header-delorean {
@@ -891,8 +892,8 @@
             </div>
         </header>
 
-        <div id="login-corner" style="position: fixed; top: 14px; right: 18px; z-index: 50;">
-            <a href="#" id="login-link" onclick="event.preventDefault(); toggleEditLock();" style="font-size: 0.8em; color: rgba(245,245,247,0.55); text-decoration: underline; cursor: pointer;">Login</a>
+        <div id="login-corner" style="position: fixed; top: 14px; right: 34px; z-index: 50;">
+            <a href="#" id="login-link" onclick="event.preventDefault(); toggleEditLock();" style="font-size: 0.8em; color: #ffffff; text-decoration: underline; cursor: pointer;">Login</a>
         </div>
 
         <div class="controls">
@@ -1108,7 +1109,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.17.0";
+        const APP_VERSION = "v23.18.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
