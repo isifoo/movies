@@ -540,18 +540,19 @@
             box-shadow: 0 30px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
             opacity: 0;
             visibility: hidden;
-            transform: scale(0.92);
-            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s 0.15s;
             pointer-events: none;
             z-index: 1000;
+            /* transform itself is driven inline by JS (see showHoverPopupForCard's
+               FLIP animation) so the popup visibly grows out of the small card
+               it came from instead of just cutting straight to full size. */
+            transition: opacity 0.22s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 0.32s;
         }
 
         .card-hover-popup.active {
             opacity: 1;
             visibility: visible;
-            transform: scale(1);
             pointer-events: auto;
-            transition: opacity 0.15s ease, transform 0.15s ease;
+            transition: opacity 0.22s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .card-hover-popup .movie-poster {
@@ -1010,7 +1011,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.9.0";
+        const APP_VERSION = "v23.10.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1664,10 +1665,34 @@
                 popup.style.cursor = 'default';
             }
 
+            const cardRect = card.getBoundingClientRect();
+
+            // Lay the popup out at its real final size/position (with
+            // transitions off, so none of this is visible yet), then use
+            // that to compute a transform that makes it exactly overlap the
+            // small card it came from.
+            popup.style.transition = 'none';
+            popup.style.transform = 'none'; // clear any transform left over from a still-settling previous card
             popup.classList.add('active');
-            // Position after layout so offsetWidth/offsetHeight reflect the
-            // freshly-cloned content's real size.
-            requestAnimationFrame(() => positionHoverPopup(card, popup));
+            positionHoverPopup(card, popup);
+
+            const popupRect = popup.getBoundingClientRect();
+            const scaleX = Math.max(0.001, cardRect.width / popupRect.width);
+            const scaleY = Math.max(0.001, cardRect.height / popupRect.height);
+            const dx = (cardRect.left + cardRect.width / 2) - (popupRect.left + popupRect.width / 2);
+            const dy = (cardRect.top + cardRect.height / 2) - (popupRect.top + popupRect.height / 2);
+            popup.style.transform = `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`;
+            popup.getBoundingClientRect(); // force layout so the line above actually takes effect before...
+
+            // ...the transition is switched back on and the transform is
+            // eased back to identity - the popup visibly grows out of the
+            // card into its full size instead of cutting straight to it.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    popup.style.transition = '';
+                    popup.style.transform = 'translate(0, 0) scale(1, 1)';
+                });
+            });
         }
 
         document.addEventListener('mouseover', (e) => {
