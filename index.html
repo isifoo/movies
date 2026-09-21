@@ -893,10 +893,6 @@
                     <div id="group-chips-scroll"></div>
                 </div>
 
-                <div class="category-header">
-                    <h2 id="list-view-title">🎯 Want to Watch <span class="count" id="list-count">0</span></h2>
-                </div>
-
                 <!-- Filter bar is shared across Grid/Cluster/Details - switching
                      the display mode never resets or hides search/genre/rating,
                      so what you're looking at in Cluster is the same filtered
@@ -1076,7 +1072,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.14.0";
+        const APP_VERSION = "v23.15.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -2079,12 +2075,38 @@
             }).join('');
             scroller.scrollTop = prevScrollTop;
 
-            const title = document.getElementById('list-view-title');
-            if (title) {
-                const countEl = `<span class="count" id="list-count">0</span>`;
+            // The List button doubles as the current-selection display (like
+            // a closed <select>), so the separate "Want to Watch 56" heading
+            // that used to sit below the filter bar is gone - this is the
+            // only place that name now shows.
+            const btn = document.getElementById('list-nav-btn');
+            if (btn) {
                 const only = [...activeGroups][0] || 'wantToWatch';
-                title.innerHTML = `${GROUP_ICONS[only] || '📁'} ${escapeHtml(getListLabel(only))} ${countEl}`;
+                const count = (movieData[only] || []).length;
+                btn.innerHTML = `${GROUP_ICONS[only] || '📁'} ${escapeHtml(getListLabel(only))} <span class="count" id="list-count">${count}</span>`;
+                fitListNavBtnWidth();
             }
+        }
+
+        // Sized to the widest possible option (icon + label, across every
+        // built-in and custom list) so the nav bar never shifts width just
+        // because you switched which list is selected.
+        let listNavBtnMeasureCanvas = null;
+        function fitListNavBtnWidth() {
+            const btn = document.getElementById('list-nav-btn');
+            if (!btn) return;
+            if (!listNavBtnMeasureCanvas) listNavBtnMeasureCanvas = document.createElement('canvas');
+            const ctx = listNavBtnMeasureCanvas.getContext('2d');
+            const cs = getComputedStyle(btn);
+            ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+            let maxWidth = 0;
+            getAllGroups().forEach(group => {
+                const label = `${GROUP_ICONS[group] || '📁'} ${getListLabel(group)}`;
+                maxWidth = Math.max(maxWidth, ctx.measureText(label).width);
+            });
+            const paddingX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+            const countAllowance = 44; // room for " 999"-ish count badge, not worth exact-measuring per list
+            btn.style.minWidth = `${Math.ceil(maxWidth + paddingX + countAllowance)}px`;
         }
 
         // Toggle-only chips for the List view's filter bar - adding/removing
