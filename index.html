@@ -86,7 +86,14 @@
         }
 
         @media (max-width: 560px) {
-            .app-header { flex-wrap: wrap; justify-content: center; text-align: center; }
+            /* The fixed 122px height (see .app-header) assumes the car and
+               text sit side by side - on narrow phones they wrap to two
+               rows instead, which needs real height or the wrapped title
+               spills out of the banner into the page below it. Desktop
+               keeps the fixed height/overflow so the car can still poke
+               out of frame there; mobile just needs the box to fit its
+               actual (wrapped) content. */
+            .app-header { flex-wrap: wrap; justify-content: center; text-align: center; height: auto; padding: 18px; }
             .header-text { align-items: center; }
         }
 
@@ -96,6 +103,62 @@
             justify-content: flex-start;
             margin-bottom: 50px;
             flex-wrap: wrap;
+        }
+
+        /* Hamburger toggles for the top nav row and the List filter bar -
+           hidden on desktop, only shown (in place of the full button rows)
+           below the phone breakpoint. Both use the same collapse pattern:
+           the real controls stay in the DOM and just go display:none until
+           .mobile-open is toggled on, so nothing about their desktop
+           behavior/JS changes. */
+        .mobile-menu-btn {
+            display: none;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #f5f5f7;
+            font-size: 0.95em;
+            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 14px;
+            text-align: left;
+        }
+
+        @media (max-width: 640px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .controls {
+                display: none;
+                flex-direction: column;
+                align-items: stretch;
+                margin-bottom: 20px;
+            }
+
+            .controls.mobile-open {
+                display: flex;
+            }
+
+            .controls button {
+                width: 100%;
+            }
+
+            #list-filter-bar {
+                display: none !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            #list-filter-bar.mobile-open {
+                display: flex !important;
+            }
+
+            #list-filter-bar > * {
+                width: 100% !important;
+            }
         }
 
         /* A picker-wheel, not a menu: positioned (by JS in openListNav /
@@ -896,6 +959,7 @@
             <a href="#" id="login-link" onclick="event.preventDefault(); toggleEditLock();" style="font-size: 0.8em; color: #ffffff; text-decoration: underline; cursor: pointer;">Login</a>
         </div>
 
+        <button id="mobile-nav-toggle" class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Menu" aria-expanded="false">☰ Menu</button>
         <div class="controls">
             <button id="list-nav-btn" onclick="openListNav()">📋 List</button>
             <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none;">🎬 Add Title</button>
@@ -934,6 +998,7 @@
                      the display mode never resets or hides search/genre/rating,
                      so what you're looking at in Cluster is the same filtered
                      set you'd see in Grid. -->
+                <button id="mobile-filter-toggle" class="mobile-menu-btn" onclick="toggleMobileFilters()" aria-label="Filters and view options" aria-expanded="false">☰ Filters</button>
                 <div id="list-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;">
                     <div style="display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden;">
                         <button type="button" class="display-mode-btn" data-mode="grid" onclick="setListDisplayMode('grid')" title="Grid view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none;">▦ Grid</button>
@@ -1109,7 +1174,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.18.0";
+        const APP_VERSION = "v23.19.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "e7d5f7be5195d60646a43ebfa0c38f0451121756e4146f5c2c75deb4e1f63820"; // Custom password
@@ -1189,6 +1254,27 @@
             document.getElementById('password-modal').style.display = 'none';
             document.getElementById('password-error').style.display = 'none';
             pendingAction = null;
+        }
+
+        // Phone-width nav: the top button row and the List filter bar each
+        // collapse behind their own hamburger toggle below 640px (see the
+        // .mobile-menu-btn / @media rules) - both stay in the DOM exactly
+        // as-is, just hidden until opened, so no other code needs to know
+        // about this.
+        function toggleMobileNav() {
+            const controls = document.querySelector('.controls');
+            const btn = document.getElementById('mobile-nav-toggle');
+            const open = controls.classList.toggle('mobile-open');
+            btn.textContent = open ? '✕ Close' : '☰ Menu';
+            btn.setAttribute('aria-expanded', open);
+        }
+
+        function toggleMobileFilters() {
+            const bar = document.getElementById('list-filter-bar');
+            const btn = document.getElementById('mobile-filter-toggle');
+            const open = bar.classList.toggle('mobile-open');
+            btn.textContent = open ? '✕ Close' : '☰ Filters';
+            btn.setAttribute('aria-expanded', open);
         }
 
         // Editing controls (add/delete/mark-watched/genre tags) are hidden
