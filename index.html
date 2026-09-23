@@ -93,9 +93,13 @@
                spills out of the banner into the page below it. Desktop
                keeps the fixed height/overflow so the car can still poke
                out of frame there; mobile just needs the box to fit its
-               actual (wrapped) content. */
-            .app-header { flex-wrap: wrap; justify-content: center; text-align: center; height: auto; padding: 18px; }
+               actual (wrapped) content - car and title are also both
+               scaled down here so that stacked total stays short instead
+               of eating most of the first screen on a phone. */
+            .app-header { flex-wrap: wrap; justify-content: center; text-align: center; height: auto; padding: 10px 14px; gap: 8px; }
             .header-text { align-items: center; }
+            .header-delorean { width: 90px; height: 90px; }
+            .header-title { font-size: 2em; }
         }
 
         .controls {
@@ -952,8 +956,8 @@
             <button id="list-nav-btn" onclick="openListNav()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="6" x2="20" y2="6"/><circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="12" x2="20" y2="12"/><circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="18" x2="20" y2="18"/></svg> List</button>
             <button id="add-title-nav-btn" onclick="requireAuth(() => openAddTitleModal())" style="display: none;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7.5" x2="12" y2="16.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/></svg> Add Title</button>
             <button onclick="openQuickPickModal()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.1" fill="currentColor" stroke="none"/></svg> Quick Pick</button>
-            <button onclick="requireAuth(() => openForYouModal())" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/></svg> Smart Recs</button>
-            <button onclick="requireAuth(() => openMovieChat())" style="background: linear-gradient(135deg, #8E44AD 0%, #6C3483 100%);"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v5A2.5 2.5 0 0 1 13.5 13H10l-3.5 3v-3H6.5A2.5 2.5 0 0 1 4 10.5z"/><path d="M10 9.5A2.5 2.5 0 0 1 12.5 7h7A2.5 2.5 0 0 1 22 9.5v5a2.5 2.5 0 0 1-2.5 2.5H18v3l-3.2-3h-2.3A2.5 2.5 0 0 1 10 14.5z"/><circle cx="16.5" cy="12" r="0.6" fill="currentColor" stroke="none"/><circle cx="19.3" cy="12" r="0.6" fill="currentColor" stroke="none"/></svg> Movie Chat</button>
+            <button onclick="requireAuth(() => openForYouModal())"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/></svg> Smart Recs</button>
+            <button onclick="requireAuth(() => openMovieChat())"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v5A2.5 2.5 0 0 1 13.5 13H10l-3.5 3v-3H6.5A2.5 2.5 0 0 1 4 10.5z"/><path d="M10 9.5A2.5 2.5 0 0 1 12.5 7h7A2.5 2.5 0 0 1 22 9.5v5a2.5 2.5 0 0 1-2.5 2.5H18v3l-3.2-3h-2.3A2.5 2.5 0 0 1 10 14.5z"/><circle cx="16.5" cy="12" r="0.6" fill="currentColor" stroke="none"/><circle cx="19.3" cy="12" r="0.6" fill="currentColor" stroke="none"/></svg> Movie Chat</button>
             <button id="admin-nav-btn" onclick="requireAuth(() => showAdminView())" style="display: none;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.3"/><line x1="18.5" y1="12" x2="21" y2="12"/><line x1="16.6" y1="16.6" x2="18.4" y2="18.4"/><line x1="12" y1="18.5" x2="12" y2="21"/><line x1="7.4" y1="16.6" x2="5.6" y2="18.4"/><line x1="5.5" y1="12" x2="3" y2="12"/><line x1="7.4" y1="7.4" x2="5.6" y2="5.6"/><line x1="12" y1="5.5" x2="12" y2="3"/><line x1="16.6" y1="7.4" x2="18.4" y2="5.6"/></svg> Admin</button>
         </div>
 
@@ -1161,7 +1165,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.21.0";
+        const APP_VERSION = "v23.22.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "15d5d1aa9a332d00ce301c2cb2818f371edb449e5d09fa6f4d1a449f2c72c503"; // Custom password
