@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "movies-app-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/Rufman/AppData/Local/Temp/claude/F--3D-Dochifat-Dropbox-Gerry-Rufman-Work-at-DBox-AI-Coding-TAMS--TeachingExersizeMindmapSystem/cf868fc4-72ed-47ef-89aa-de6f90a9c251/scratchpad/serve_movies.js"],
+      "port": 5603
+    }
+  ]
+}

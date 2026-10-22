@@ -1166,7 +1166,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.22.1";
+        const APP_VERSION = "v23.23.0";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "15d5d1aa9a332d00ce301c2cb2818f371edb449e5d09fa6f4d1a449f2c72c503"; // Custom password
@@ -1969,7 +1969,7 @@
             return `
                 <div class="movie-card" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-poster" ${movie.backdrop ? `data-backdrop="${movie.backdrop}"` : ''}>
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}" loading="lazy" decoding="async">` : '🎬'}
                     </div>
                     <div class="movie-info" onclick="event.stopPropagation();">
                         <div class="movie-info-title">
@@ -1998,7 +1998,7 @@
             return `
                 <div class="movie-list-row" ${imdbLink ? `onclick="window.open('${imdbLink}', '_blank')" style="cursor: pointer;"` : ''}>
                     <div class="movie-list-thumb">
-                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}">` : '🎬'}
+                        ${movie.poster ? `<img src="${movie.poster}" alt="${safeTitle}" loading="lazy" decoding="async">` : '🎬'}
                     </div>
                     <div class="movie-list-title">
                         ${safeTitle}${movie.year ? ` <span class="movie-year">(${movie.year})</span>` : ''}
@@ -2440,7 +2440,7 @@
                 if (missing > 0 && statusEl) {
                     statusEl.style.display = 'block';
                     statusEl.textContent = `Loading genre/rating data for ${missing} title(s) - one-time, cached after this...`;
-                    await ensureWatchedRatings(realMovies, (done, total) => {
+                    await runEnrichmentOnce(realMovies, (done, total) => {
                         if (!tokenCheck || tokenCheck()) {
                             statusEl.textContent = `Loading genre/rating data... ${done} / ${total}`;
                         }
@@ -2451,21 +2451,66 @@
             return realMovies;
         }
 
+        let enrichmentInFlight = null;
+        async function runEnrichmentOnce(movies, onProgress) {
+            while (enrichmentInFlight) await enrichmentInFlight;
+            const stillMissing = movies.some(m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined || m.backdrop === undefined);
+            if (!stillMissing) return;
+            enrichmentInFlight = ensureWatchedRatings(movies, onProgress).finally(() => { enrichmentInFlight = null; });
+            await enrichmentInFlight;
+        }
+
+        function activeGroupMovies() {
+            let all = [];
+            activeGroups.forEach(group => { all = all.concat(movieData[group] || []); });
+            return all;
+        }
+
+        // Paints in slices across animation frames so switching to a big list
+        // (800+ titles) shows the first screen immediately instead of
+        // freezing while the whole grid is built in one go.
+        function paintGridChunked(grid, parts, token) {
+            const FIRST = 60, CHUNK = 120;
+            grid.innerHTML = parts.slice(0, FIRST).join('');
+            let i = FIRST;
+            const step = () => {
+                if (token !== watchedGridRenderToken || i >= parts.length) return;
+                grid.insertAdjacentHTML('beforeend', parts.slice(i, i + CHUNK).join(''));
+                i += CHUNK;
+                requestAnimationFrame(step);
+            };
+            if (i < parts.length) requestAnimationFrame(step);
+        }
+
+        // Paint first with whatever is cached, enrich afterwards: the grid
+        // used to wait for the entire TMDB enrichment before drawing
+        // anything, and overlapping renders each started their own copy of
+        // that fetch, so switching lists mid-load left the grid half-drawn.
         async function renderListView() {
             const myRenderToken = ++watchedGridRenderToken;
-            const grid = document.getElementById('watched-grid');
+            const isCurrent = () => myRenderToken === watchedGridRenderToken;
             const status = document.getElementById('watched-filter-status');
-            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
 
             renderGroupChips();
             renderGenreChips();
 
-            // forceAlways: true - always enrich so the hover popup's rating/
-            // genres/plot/backdrop are ready instantly. This used to be
-            // conditional on the rating/genre filter UI being in use, but
-            // that UI is gone now that every card always shows this data on
-            // hover, not just when filtering by it.
-            const realMovies = await ensureActiveGroupsEnriched(status, () => myRenderToken === watchedGridRenderToken, true);
+            paintListGrid(myRenderToken);
+
+            const needsData = m => m.clusterRating === undefined || m.genreNames === undefined || m.overview === undefined || m.backdrop === undefined;
+            const hadMissing = activeGroupMovies().some(needsData);
+            try {
+                await ensureActiveGroupsEnriched(status, isCurrent, true);
+            } catch (e) {
+                console.error('Enrichment failed', e);
+                return;
+            }
+            if (isCurrent() && hadMissing) paintListGrid(myRenderToken);
+        }
+
+        function paintListGrid(myRenderToken) {
+            const grid = document.getElementById('watched-grid');
+            const groupBy = document.getElementById('watched-filter-groupby')?.value || 'none';
+            const realMovies = activeGroupMovies();
 
             const countEl = document.getElementById('list-count');
             if (countEl) countEl.textContent = realMovies.length;
@@ -2480,10 +2525,6 @@
                 return;
             }
 
-            // A newer render started while we were awaiting enrichment above -
-            // abandon this one instead of racing it to paint the grid.
-            if (myRenderToken !== watchedGridRenderToken) return;
-
             const movies = getFilteredSortedListMovies();
             grid.classList.toggle('list-mode', watchedViewLayout === 'list');
             const renderItem = watchedViewLayout === 'list'
@@ -2496,7 +2537,7 @@
             }
 
             if (groupBy === 'none') {
-                grid.innerHTML = movies.map(renderItem).join('');
+                paintGridChunked(grid, movies.map(renderItem), myRenderToken);
                 return;
             }
 
@@ -2521,11 +2562,12 @@
             labels.sort(groupBy === 'genre' ? (a, b) => groups[b].length - groups[a].length : (a, b) => parseInt(b, 10) - parseInt(a, 10));
             if (groups['Unknown']) labels.push('Unknown');
 
-            grid.innerHTML = labels.map(label => {
-                const header = `<div class="decade-header">${label}<span class="decade-count">${groups[label].length}</span></div>`;
-                const cards = groups[label].map(renderItem).join('');
-                return header + cards;
-            }).join('');
+            const parts = [];
+            labels.forEach(label => {
+                parts.push(`<div class="decade-header">${label}<span class="decade-count">${groups[label].length}</span></div>`);
+                groups[label].forEach(m => parts.push(renderItem(m)));
+            });
+            paintGridChunked(grid, parts, myRenderToken);
         }
 
         // ===== Watched Cluster View =====
