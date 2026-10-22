@@ -188,7 +188,7 @@
             transform: scale(0.95);
             transform-origin: top left;
             transition: opacity 0.2s ease, transform 0.22s ease;
-            z-index: 950;
+            z-index: 1100; /* above .card-hover-popup (1000), which otherwise covers and eats clicks on the lower list items */
         }
 
         #group-chips-bar.open {
@@ -1166,7 +1166,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.23.0";
+        const APP_VERSION = "v23.23.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "15d5d1aa9a332d00ce301c2cb2818f371edb449e5d09fa6f4d1a449f2c72c503"; // Custom password
@@ -2091,7 +2091,10 @@
             }
             const bar = document.getElementById('group-chips-bar');
             if (bar) bar.classList.toggle('open', groupChipsOpen);
-            if (groupChipsOpen) positionGroupChipsBar();
+            if (groupChipsOpen) {
+                hideHoverPopupNow();
+                positionGroupChipsBar();
+            }
         }
 
         // Anchors the dropdown just below the List button, like a normal
