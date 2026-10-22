@@ -996,7 +996,7 @@
                         <button type="button" class="display-mode-btn" data-mode="cluster" onclick="setListDisplayMode('cluster')" title="Flow view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">🎞️ Flow</button>
                         <button type="button" class="display-mode-btn" data-mode="details" onclick="setListDisplayMode('details')" title="Details view" style="width: auto; padding: 8px 10px; font-size: 0.85em; border-radius: 0; border: none; border-left: 1px solid rgba(255,255,255,0.12);">☰ Details</button>
                     </div>
-                    <input type="text" id="watched-filter-search" placeholder="🔍 Search title..." oninput="renderCurrentDisplay()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
+                    <input type="text" id="watched-filter-search" name="title-filter" autocomplete="off" placeholder="🔍 Search title..." oninput="renderCurrentDisplay()" style="width: 160px; padding: 8px 12px; font-size: 0.85em;">
                     <select id="watched-filter-groupby" onchange="renderCurrentDisplay()" style="width: auto; padding: 8px 12px; font-size: 0.85em;">
                         <option value="none" selected>No grouping</option>
                         <option value="decade">Group: Decade</option>
@@ -1083,7 +1083,8 @@
         <div style="background: #1d1d1f; padding: 40px; border-radius: 18px; max-width: 400px; width: 90%; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); text-align: center;">
             <h2 style="margin-bottom: 24px; font-size: 1.75em; font-weight: 600; letter-spacing: -0.02em; color: #f5f5f7;">🔒 Authentication Required</h2>
             <p style="color: rgba(245, 245, 247, 0.7); margin-bottom: 24px; font-size: 0.95em;">Only Rufman can make changes</p>
-            <input type="password" id="password-input" placeholder="Enter password" style="width: 100%; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; font-size: 16px; background: rgba(255, 255, 255, 0.05); color: #f5f5f7; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;" autofocus>
+            <input type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
+            <input type="password" id="password-input" autocomplete="current-password" placeholder="Enter password" style="width: 100%; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; font-size: 16px; background: rgba(255, 255, 255, 0.05); color: #f5f5f7; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;" autofocus>
             <div style="display: flex; gap: 12px;">
                 <button onclick="closePasswordModal()" style="flex: 1; padding: 14px 24px; font-size: 16px; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.12); color: #f5f5f7;">Cancel</button>
                 <button onclick="checkPassword()" style="flex: 1; padding: 14px 24px; font-size: 16px; background: rgba(0, 122, 255, 0.15); border-color: rgba(0, 122, 255, 0.3); color: #0a84ff;">Unlock</button>
@@ -1165,7 +1166,7 @@
 
     <script>
         // App Version
-        const APP_VERSION = "v23.22.0";
+        const APP_VERSION = "v23.22.1";
         
         // Password Protection (set your password here)
         const PASSWORD_HASH = "15d5d1aa9a332d00ce301c2cb2818f371edb449e5d09fa6f4d1a449f2c72c503"; // Custom password
